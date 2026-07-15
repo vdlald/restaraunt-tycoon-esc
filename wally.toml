@@ -1,0 +1,29 @@
+[package]
+name = "vladislavgolubinov/restauranttycoonecs"
+version = "0.1.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+[dependencies]
+# UI
+React       = "jsdotlua/react@17.2.1"
+ReactRoblox = "jsdotlua/react-roblox@17.2.1"
+Rodux       = "roblox/rodux@3.0.0"
+
+# Расширение возможности кода
+Val        = "tumblewede/val@1.0.1"
+Jecs       = "ukendio/jecs@0.11.0"
+
+# Утилиты
+Cryo       = "phalanxia/cryo@1.0.3"
+Promise    = "evaera/promise@4.0.0"
+Janitor    = "howmanysmall/janitor@1.18.3"
+
+# Сеть и данные
+ByteNet    = "ffrostflame/bytenet@0.4.6"
+
+[server-dependencies]
+ProfileStore = "lm-loleris/profilestore@1.0.3"
+
+[dev-dependencies]
+TestEZ = "roblox/testez@*"

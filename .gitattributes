@@ -1,0 +1,4 @@
+# Normalize line endings in the repo
+* text=auto eol=lf
+
+*.rbxlx binary

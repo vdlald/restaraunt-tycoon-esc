@@ -1,0 +1,3 @@
+{
+  "globals": ["it", "describe", "beforeAll", "beforeEach", "afterAll", "afterEach", "fail", "expect"]
+}
