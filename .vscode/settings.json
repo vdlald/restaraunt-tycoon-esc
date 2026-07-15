@@ -1,0 +1,10 @@
+{
+    "[lua]": {},
+    "robloxLsp.workspace.preloadFileSize": 200,
+    // "robloxLsp.diagnostics.neededFileStatus": 
+    "robloxLsp.hint.enable": true,
+    "robloxLsp.hint.paramName": true,
+    "robloxLsp.hint.returnType": true,
+    "robloxLsp.hint.setType": true,
+    "robloxLsp.intelliSense.searchDepth": 1
+}
