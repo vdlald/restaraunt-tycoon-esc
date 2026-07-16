@@ -3,15 +3,23 @@
 -- Зависимости
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
+local Class = require(ReplicatedStorage.Shared.Class)
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Types)
+local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
 
 local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
 
 -- Объявление системы
-local PlayerInteractSystem = {}
+local PlayerInteractSystem = Class.defineClass("PlayerInteractSystem", AbstractSystem)
+
+function PlayerInteractSystem.new()
+	local parent = AbstractSystem.new()
+	local self = setmetatable(parent, PlayerInteractSystem)
+    return self
+end
 
 local cachedQuery = world:query(WorldWrapper:GetPlayerComponent(), WorldWrapper:GetWantsToInteractRelation()):cached()
 
@@ -38,4 +46,4 @@ function PlayerInteractSystem:processPlayerInteract(
 	world:set(target, WorldWrapper:GetPlayerInteractComponent(), { From = playerView, KeyCode = keyCode })
 end
 
-return PlayerInteractSystem
+return PlayerInteractSystem.new()
