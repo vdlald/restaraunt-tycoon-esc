@@ -58,7 +58,7 @@ end
 -- Utils
 function PlayerView:GetDistance(instance: Instance): number
 	local humanoid = self:GetHumanoid()
-	local primaryPart = instance:GetPrimaryPart() or instance:GetView()
+	local primaryPart = instance.PrimaryPart or instance
 	local distance = (humanoid.RootPart.Position - primaryPart.Position).Magnitude
 	return distance
 end

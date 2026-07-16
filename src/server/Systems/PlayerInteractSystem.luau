@@ -18,11 +18,12 @@ local PlayerInteractSystem = Class.defineClass("PlayerInteractSystem", AbstractS
 function PlayerInteractSystem.new()
 	local parent = AbstractSystem.new()
 	local self = setmetatable(parent, PlayerInteractSystem)
-    return self
+	return self
 end
 
-local cachedQuery = world:query(WorldWrapper:GetPlayerComponent(), WorldWrapper:GetWantsToInteractRelation()):cached()
+local cachedQuery = world:query(WorldWrapper:GetPlayerComponent(), WorldWrapper:GetWantsToInteractComponent()):cached()
 
+-- Процессинг
 function PlayerInteractSystem:Process(_: number)
 	for playerId, playerComponent, intent in cachedQuery do
 		local target: jecs.Entity<nil> = intent.Target
@@ -31,10 +32,10 @@ function PlayerInteractSystem:Process(_: number)
 
 		local ok, err = pcall(self.processPlayerInteract, self, playerView, target, keyCode)
 		if not ok then
-			error("PlayerInteractSystem.process failed: ", err)
+			error(`PlayerInteractSystem.processPlayerInteract failed: {err}`)
 		end
 
-		world:remove(playerId, WorldWrapper:GetWantsToInteractRelation())
+		world:remove(playerId, WorldWrapper:GetWantsToInteractComponent())
 	end
 end
 
@@ -43,7 +44,7 @@ function PlayerInteractSystem:processPlayerInteract(
 	target: jecs.Entity<nil>,
 	keyCode: Enum.KeyCode
 )
-	world:set(target, WorldWrapper:GetPlayerInteractComponent(), { From = playerView, KeyCode = keyCode })
+	world:set(target, WorldWrapper:GetPlayerInteractComponent(), { PlayerView = playerView, KeyCode = keyCode })
 end
 
 return PlayerInteractSystem.new()

@@ -1,16 +1,17 @@
 --!strict
 
--- Main Script
+-- Зависимости
 local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Сервисы
 local Consts = require(ReplicatedStorage.Shared.Consts)
 local PlayerUtils = require(ReplicatedStorage.Shared.PlayerUtils)
 local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
 
+--
+-- Общие переменные
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -18,6 +19,7 @@ player.CameraMode = Enum.CameraMode.LockFirstPerson
 
 local closestPart: Instance = PlayerUtils:GetClosestInteractablePartInRadius(player, Consts.InteractablePlayerDistance)
 
+--
 -- Впомогательные функции
 local function isFirstPerson()
 	local char = player.Character
@@ -37,6 +39,7 @@ local function isFirstPerson()
 	return distance < 1
 end
 
+--
 -- Взаимодействие с миром
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
@@ -48,7 +51,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 
 	if Consts.InteractableAllowedKeys[input.KeyCode] then
-		local entityId = closestPart:GetAttribute(Consts.Attributes.entityId)
+		local entityId = closestPart:GetAttribute(Consts.Attributes.EntityId)
 		if not entityId then
 			return
 		end
@@ -56,6 +59,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 end)
 
+--
 -- Подсветка ближайшей фурниутры
 local highlight = Instance.new("Highlight")
 highlight.FillColor = Color3.fromRGB(255, 183, 0)
@@ -110,11 +114,11 @@ RunService.RenderStepped:Connect(function(_)
 	end
 
 	local part: Instance = result.Instance
-	if not part:HasTag("Interactable") then
+	if not part:HasTag(Consts.Tags.Interactable) then
 		part = part:FindFirstAncestorOfClass("Model") or part:FindFirstAncestorOfClass("Tool")
 	end
 
-	if not part or not part:HasTag("Interactable") or part:HasTag("Placed") then
+	if not part or not part:HasTag(Consts.Tags.Interactable) or part:HasTag(Consts.Tags.Placed) then
 		return
 	end
 

@@ -15,8 +15,8 @@ local world = WorldWrapper:GetWorld()
 local AbstractSystem = Class:defineClass("AbstractSystem")
 
 export type AbstractSystem = {
-    Process: (deltaTime: number) -> (),
-    IsThrottled: (deltaTime: number) -> boolean,
+    Process: (self: AbstractSystem, deltaTime: number) -> (),
+    IsThrottled: (self: AbstractSystem, deltaTime: number) -> boolean,
 }
 
 function AbstractSystem.new()
