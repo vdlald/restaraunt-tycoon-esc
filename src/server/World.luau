@@ -22,16 +22,23 @@ local playerComponent = world:component() :: PlayerComponent
 export type InstanceComponent = jecs.Id<{ Instance: Instance }>
 local instanceComponent = world:component() :: InstanceComponent
 
--- Пользователь хочет взаимодействовать
-export type WantsToInteractComponent = jecs.Id<{target: jecs.Entity<nil>, KeyCode: Enum.KeyCode}>
+-- Пользователь хочет взаимодействовать, позволяет провалидировать возможность взаимодействия
+export type WantsToInteractComponent = jecs.Id<{ target: jecs.Entity<nil>, KeyCode: Enum.KeyCode }>
 local wantsToInteractComponent = world:component() :: WantsToInteractComponent
 
+-- Instance получил запрос на взаимодействие
+export type PlayerInteractComponent = jecs.Id<{ From: Types.PlayerView, KeyCode: Enum.KeyCode }>
+local playerInteractComponent = world:component() :: PlayerInteractComponent
+
+--
 -- Объявление WorldWrapper
+--
 export type WorldWrapper = {
 	-- jecks specific
 	GetWorld: (self: WorldWrapper) -> jecs.World,
 	GetPlayerComponent: (self: WorldWrapper) -> PlayerComponent,
 	GetInstanceComponent: (self: WorldWrapper) -> InstanceComponent,
+	GetPlayerInteractComponent: (self: WorldWrapper) -> PlayerInteractComponent,
 	GetWantsToInteractComponent: (self: WorldWrapper) -> WantsToInteractComponent,
 
 	-- lookup
@@ -61,6 +68,10 @@ end
 
 function WorldWrapper:GetWantsToInteractComponent(): WantsToInteractComponent
 	return wantsToInteractComponent
+end
+
+function WorldWrapper:GetPlayerInteractComponent(): PlayerInteractComponent
+	return playerInteractComponent
 end
 
 function WorldWrapper:FindPlayer(playerId: jecs.Entity<nil>): Types.PlayerView?

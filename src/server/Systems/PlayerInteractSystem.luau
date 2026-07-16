@@ -17,22 +17,25 @@ local cachedQuery = world:query(WorldWrapper:GetPlayerComponent(), WorldWrapper:
 
 function PlayerInteractSystem:Process(_: number)
 	for playerId, playerComponent, intent in cachedQuery do
-        local target: jecs.Entity<nil> = intent.Target
+		local target: jecs.Entity<nil> = intent.Target
 		local keyCode: Enum.KeyCode = intent.KeyCode
 		local playerView: Types.PlayerView = playerComponent.PlayerView
 
-        local ok, err = pcall(self.processPlayerInteract, self, playerView, target, keyCode)
-        if not ok then
-            error("PlayerInteractSystem.process failed: ",err)
-        end
+		local ok, err = pcall(self.processPlayerInteract, self, playerView, target, keyCode)
+		if not ok then
+			error("PlayerInteractSystem.process failed: ", err)
+		end
 
 		world:remove(playerId, WorldWrapper:GetWantsToInteractRelation())
 	end
 end
 
-function PlayerInteractSystem:processPlayerInteract(playerView: Types.PlayerView, target: jecs.Entity<nil>, keyCode: Enum.KeyCode)
-    local instance = world:get(target, WorldWrapper:GetInstanceComponent()).Instance
-	print(playerView:GetPlayer(), keyCode, instance)
+function PlayerInteractSystem:processPlayerInteract(
+	playerView: Types.PlayerView,
+	target: jecs.Entity<nil>,
+	keyCode: Enum.KeyCode
+)
+	world:set(target, WorldWrapper:GetPlayerInteractComponent(), { From = playerView, KeyCode = keyCode })
 end
 
 return PlayerInteractSystem

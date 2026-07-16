@@ -15,10 +15,15 @@ Net.playerInteract.listen(function(data: table, player: Player)
 	local entityId: number = data.entityId
 	local keyCode = Enum.KeyCode:FromValue(data.keyCode)
 
+	if not Consts.InteractableAllowedKeys[keyCode] then
+		warn("suspicious player interaction: userId=" .. player.UserId .. ", keyCode=" .. keyCode)
+		return
+	end
+
 	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
 	local playerView: Types.PlayerView? = WorldWrapper:FindPlayer(playerId)
 	if not playerView then
-		error("unknown playerId=" .. playerId)
+		error("unknown userId=" .. player.UserId)
 		return
 	end
 
