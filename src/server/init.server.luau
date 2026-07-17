@@ -1,6 +1,7 @@
 -- Зависимости
 local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Types)
+local ObjectPool = require(ServerScriptService.Server.ObjectPool)
 
 local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
@@ -21,6 +22,7 @@ Net.playerInteract.listen(function(data: table, player: Player)
 	local entityId: number = data.entityId
 	local keyCode = Enum.KeyCode:FromValue(data.keyCode)
 
+	-- anti-cheat validations
 	if not Consts.InteractableAllowedKeys[keyCode] then
 		warn("suspicious player interaction: userId=" .. player.UserId .. ", keyCode=" .. keyCode)
 		return
@@ -43,6 +45,11 @@ Net.playerInteract.listen(function(data: table, player: Player)
 		return
 	end
 
+	if ObjectPool:IsPooled(entityId) then
+		warn("suspicious player interaction, interact with pooled view: userId=" .. player.UserId)
+		return
+	end
+
 	local instance = WorldWrapper:FindInstance(entityId)
 	if not instance then
 		warn("suspicious player interaction, unknown view: userId=" .. player.UserId .. ", entityId=" .. entityId)
@@ -60,6 +67,7 @@ Net.playerInteract.listen(function(data: table, player: Player)
 		return
 	end
 
+	-- game specific validations
 	world:set(playerId, WorldWrapper:GetWantsToInteractComponent(), { Target = entityId, KeyCode = keyCode })
 end)
 

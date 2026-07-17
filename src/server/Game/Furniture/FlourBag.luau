@@ -47,6 +47,8 @@ local cachedQuery = world:query(flourBagComponent, WorldWrapper:GetPlayerInterac
 
 function System:Process(_: number)
 	for entityId, _, intent in cachedQuery do
+		world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
+
 		local keyCode: Enum.KeyCode = intent.KeyCode
 		local playerView: Types.PlayerView = intent.PlayerView
 
@@ -54,13 +56,26 @@ function System:Process(_: number)
 		if not ok then
 			error(`{self.ClassName}.processPlayerInteract failed: {err}`)
 		end
-
-		world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
 	end
 end
 
-function System:processPlayerInteract(target: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
-	print(playerView, keyCode, target)
+local Flour = require(ServerScriptService.Server.Game.Ingridient.Flour)
+function System:processPlayerInteract(_: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
+	if keyCode ~= Enum.KeyCode.E then
+		return
+	end
+
+	local equippedTool = playerView:GetEquippedTool()
+	if not equippedTool then
+		local _, flourInstance = Flour.Create()
+		flourInstance.Parent = workspace
+		playerView:PutInHands(flourInstance)
+	end
+
+	if world:has(equippedTool, Flour.Component) then
+		playerView:TakeFromHands()
+		world:
+	end
 end
 
 --
