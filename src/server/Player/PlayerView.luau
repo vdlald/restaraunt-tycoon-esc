@@ -38,7 +38,7 @@ function PlayerView:TakeFromHands(): jecs.Id<nil>?
 	end
 
 	self:GetHumanoid():UnequipTools()
-	return tool:GetAttribute(Consts.Attributes.EntityId)
+	return tool
 end
 
 -- Положить пользователю предмет в руки
@@ -58,7 +58,17 @@ end
 -- Utils
 function PlayerView:GetDistance(instance: Instance): number
 	local humanoid = self:GetHumanoid()
-	local primaryPart = instance.PrimaryPart or instance
+	local ok, res = pcall(function()
+		return instance.PrimaryPart
+	end)
+
+	local primaryPart: Instance
+	if ok then
+		primaryPart = res
+	else
+		primaryPart = instance
+	end
+
 	local distance = (humanoid.RootPart.Position - primaryPart.Position).Magnitude
 	return distance
 end
@@ -69,7 +79,7 @@ function PlayerView:GetCharacter(): Model
 end
 
 function PlayerView:GetHumanoid(): Humanoid
-    local humanoid = self:GetCharacter():WaitForChild("Humanoid")
+	local humanoid = self:GetCharacter():WaitForChild("Humanoid")
 	return humanoid
 end
 

@@ -56,7 +56,8 @@ function System:Process(_: number)
 
 		local ok, err = pcall(self.processPlayerInteract, self, entityId, playerView, keyCode)
 		if not ok then
-			error(`{self.ClassName}.processPlayerInteract failed: {err}`)
+			local trace = debug.traceback(err, 1)
+			warn(`{self.ClassName}.processPlayerInteract failed\n`, trace)
 		end
 	end
 end

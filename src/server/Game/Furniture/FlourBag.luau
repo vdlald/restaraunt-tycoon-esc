@@ -52,9 +52,12 @@ function System:Process(_: number)
 		local keyCode: Enum.KeyCode = intent.KeyCode
 		local playerView: Types.PlayerView = intent.PlayerView
 
-		local ok, err = pcall(self.processPlayerInteract, self, entityId, playerView, keyCode)
+		local ok, err = pcall(function()
+			System:processPlayerInteract(entityId, playerView, keyCode)
+		end)
 		if not ok then
-			error(`{self.ClassName}.processPlayerInteract failed: {err}`)
+			local trace = debug.traceback(err)
+			warn(`{self.ClassName}.processPlayerInteract failed\n`, trace)
 		end
 	end
 end
@@ -67,14 +70,15 @@ function System:processPlayerInteract(_: jecs.Entity<nil>, playerView: Types.Pla
 
 	local equippedTool = playerView:GetEquippedTool()
 	if not equippedTool then
-		local _, flourInstance = Flour.Create()
+		local _, flourInstance = Flour.Pool:Get()
 		flourInstance.Parent = workspace
 		playerView:PutInHands(flourInstance)
+		return
 	end
 
 	if world:has(equippedTool, Flour.Component) then
 		playerView:TakeFromHands()
-		world:
+		Flour.Pool:Release(equippedTool)
 	end
 end
 

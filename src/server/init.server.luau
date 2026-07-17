@@ -73,12 +73,15 @@ end)
 
 -- Системы
 local RunService = game:GetService("RunService")
+local PlaceHolder = require(ServerScriptService.Server.Components.PlaceHolder)
 local PlayerInteractSystem = require(ServerScriptService.Server.Systems.PlayerInteractSystem)
 
 local FlourBag = require(ServerScriptService.Server.Game.Furniture.FlourBag)
+local KitchenTable = require(ServerScriptService.Server.Game.Furniture.KitchenTable)
 
 RunService.Heartbeat:Connect(function(deltaTime)
 	PlayerInteractSystem:Process(deltaTime)
+	PlaceHolder.System:Process(deltaTime)
 	FlourBag.System:Process(deltaTime)
 end)
 
@@ -86,3 +89,5 @@ end)
 local flourBagEntity, flourBagInstance = FlourBag.Create()
 flourBagInstance.Parent = workspace
 
+local KitchenTableEntity, kitchenTableInstance = KitchenTable.Create()
+kitchenTableInstance.Parent = workspace

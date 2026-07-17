@@ -21,7 +21,7 @@ export type ObjectPool = {
 	new: (factoryMethod: FactoryMethod, initialSize: number) -> ObjectPool,
 
 	Get: (self: ObjectPool) -> (jecs.Entity<nil>, Instance),
-	Release: (self: ObjectPool) -> jecs.Entity<nil>,
+	Release: (self: ObjectPool, jecs.Entity<nil>) -> (),
 	IsPooled: (self: ObjectPool, entityId: jecs.Entity<nil>) -> boolean,
 }
 

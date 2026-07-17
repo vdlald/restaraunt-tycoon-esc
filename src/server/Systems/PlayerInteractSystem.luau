@@ -32,7 +32,7 @@ function PlayerInteractSystem:Process(_: number)
 
 		local ok, err = pcall(self.processPlayerInteract, self, playerView, target, keyCode)
 		if not ok then
-			error(`PlayerInteractSystem.processPlayerInteract failed: {err}`)
+			warn(`PlayerInteractSystem.processPlayerInteract failed: {err}`)
 		end
 
 		world:remove(playerId, WorldWrapper:GetWantsToInteractComponent())
