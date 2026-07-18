@@ -34,6 +34,10 @@ local wantsToInteractComponent = world:component() :: WantsToInteractComponent
 export type PlayerInteractComponent = jecs.Id<{ PlayerView: Types.PlayerView, KeyCode: Enum.KeyCode }>
 local playerInteractComponent = world:component() :: PlayerInteractComponent
 
+-- ReplaceTarget
+export type ReplaceTargetComponent = jecs.Id<{ NewTarget: jecs.Entity<nil> }>
+local replaceTargetComponent = world:component() :: ReplaceTargetComponent
+
 --
 -- Объявление WorldWrapper
 --
@@ -48,6 +52,8 @@ export type WorldWrapper = {
 	GetWantsToInteractComponent: (self: WorldWrapper) -> WantsToInteractComponent,
 
 	GetPlayerInteractableComponent: (self: WorldWrapper) -> PlayerInteractableComponent,
+
+	GetReplaceTargetComponent: (self: WorldWrapper) -> ReplaceTargetComponent,
 
 	-- lookup
 	FindPlayer: (self: WorldWrapper, playerId: jecs.Entity<nil>) -> Types.PlayerView?,
@@ -86,6 +92,10 @@ function WorldWrapper:GetPlayerInteractableComponent(): PlayerInteractableCompon
 	return playerInteractableComponent
 end
 
+function WorldWrapper:GetReplaceTargetComponent(): ReplaceTargetComponent
+	return replaceTargetComponent
+end
+
 function WorldWrapper:FindPlayer(playerId: jecs.Entity<nil>): Types.PlayerView?
 	local componentData: Types.PlayerView = world:get(playerId, playerComponent)
 	if not componentData then
@@ -112,7 +122,7 @@ end
 function WorldWrapper:RegisterInstance(newInstance: Instance, class: string): jecs.Entity<nil>
 	local entity = world:entity()
 	newInstance:SetAttribute(Consts.Attributes.EntityId, entity)
-	world:set(entity, instanceComponent, { Instance = newInstance, Class = class})
+	world:set(entity, instanceComponent, { Instance = newInstance, Class = class })
 	return entity
 end
 

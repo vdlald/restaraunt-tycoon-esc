@@ -17,19 +17,19 @@ local world = WorldWrapper:GetWorld()
 
 --
 -- Компонент
-export type FlourComponent = jecs.Id<nil>
-local flourComponent = world:component() :: FlourComponent
+export type RawPieComponent = jecs.Id<nil>
+local rawPieComponent = world:component() :: RawPieComponent
 
 --
 -- Объявление сущности
 local ObjectPool = require(ServerScriptService.Server.ObjectPool)
 
-local FlourPool = ObjectPool.new(function()
-	local instance: Tool = ServerStorage.Ingridient.Flour:Clone()
+local RawPiePool = ObjectPool.new(function()
+	local instance: Tool = ServerStorage.Ingridient.RawPie:Clone()
 	instance:AddTag(Consts.Tags.Interactable)
 
-	local entity = WorldWrapper:RegisterInstance(instance, "Flour")
-	world:set(entity, flourComponent)
+	local entity = WorldWrapper:RegisterInstance(instance, "RawPie")
+	world:set(entity, rawPieComponent)
 	world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
 
 	return entity, instance
@@ -37,7 +37,7 @@ end, 5)
 
 --
 -- Объявление обработчика
-local System = Class.defineClass("FlourSystem", AbstractSystem)
+local System = Class.defineClass("RawPieSystem", AbstractSystem)
 
 function System.new(): AbstractSystem.AbstractSystem
 	local parent = AbstractSystem.new()
@@ -45,12 +45,10 @@ function System.new(): AbstractSystem.AbstractSystem
 	return self
 end
 
-local cachedQuery = function()
-	return world:query(WorldWrapper:GetPlayerInteractComponent()):with(flourComponent)
-end
+local cachedQuery = world:query(rawPieComponent, WorldWrapper:GetPlayerInteractComponent()):cached()
 
 function System:Process(_: number)
-	for entityId, intent in cachedQuery() do
+	for entityId, _, intent in cachedQuery do
 		world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
 
 		local keyCode: Enum.KeyCode = intent.KeyCode
@@ -64,23 +62,14 @@ function System:Process(_: number)
 	end
 end
 
-local Dough = require(ServerScriptService.Server.Game.Ingridient.Dough)
-function System:processPlayerInteract(target: jecs.Entity<nil>, _: Types.PlayerView, keyCode: Enum.KeyCode)
-	if keyCode ~= Enum.KeyCode.F then
-		return
-	end
-
-	local doughEntity, doughInstance = Dough.Pool:Get()
-	doughInstance.Parent = workspace
-	world:set(target, WorldWrapper:GetReplaceTargetComponent(), { NewTarget = doughEntity })
-
-	FlourPool:Release(target)
+function System:processPlayerInteract(target: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
+	print(playerView, keyCode, target)
 end
 
 --
 -- Модуль
 return {
-	Pool = FlourPool,
-	Component = flourComponent,
+	Pool = RawPiePool,
+	Component = rawPieComponent,
 	System = System.new(),
 }

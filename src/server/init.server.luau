@@ -76,18 +76,41 @@ local RunService = game:GetService("RunService")
 local PlaceHolder = require(ServerScriptService.Server.Components.PlaceHolder)
 local PlayerInteractSystem = require(ServerScriptService.Server.Systems.PlayerInteractSystem)
 
+local Flour = require(ServerScriptService.Server.Game.Ingridient.Flour)
+local Dough = require(ServerScriptService.Server.Game.Ingridient.Dough)
+local RawPie = require(ServerScriptService.Server.Game.Ingridient.RawPie)
+
 local FlourBag = require(ServerScriptService.Server.Game.Furniture.FlourBag)
 local KitchenTable = require(ServerScriptService.Server.Game.Furniture.KitchenTable)
 
 RunService.Heartbeat:Connect(function(deltaTime)
+	-- start phase
 	PlayerInteractSystem:Process(deltaTime)
-	PlaceHolder.System:Process(deltaTime)
+
+	-- middle phase
 	FlourBag.System:Process(deltaTime)
+
+	Flour.System:Process(deltaTime)
+	Dough.System:Process(deltaTime)
+	RawPie.System:Process(deltaTime)
+
+	-- end phase
+	PlaceHolder.System:Process(deltaTime)
 end)
 
 -- Инициализация мира
-local flourBagEntity, flourBagInstance = FlourBag.Create()
+local _, flourBagInstance = FlourBag.Create()
 flourBagInstance.Parent = workspace
+flourBagInstance:SetPrimaryPartCFrame(CFrame.new(Vector3.new(3, 1, -2)))
 
-local KitchenTableEntity, kitchenTableInstance = KitchenTable.Create()
-kitchenTableInstance.Parent = workspace
+local _, kitchenTableInstance1 = KitchenTable.Create()
+kitchenTableInstance1.Parent = workspace
+kitchenTableInstance1:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-6, 1.5, -3)))
+
+local _, kitchenTableInstance2 = KitchenTable.Create()
+kitchenTableInstance2.Parent = workspace
+kitchenTableInstance2:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-1, 1.5, -3)))
+
+local _, kitchenTableInstance3 = KitchenTable.Create()
+kitchenTableInstance3.Parent = workspace
+kitchenTableInstance3:SetPrimaryPartCFrame(CFrame.new(Vector3.new(6, 1.5, -3)))

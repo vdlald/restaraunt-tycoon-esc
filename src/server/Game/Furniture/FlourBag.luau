@@ -43,10 +43,10 @@ function System.new()
 	return self
 end
 
-local cachedQuery = world:query(flourBagComponent, WorldWrapper:GetPlayerInteractComponent()):cached()
+local cachedQuery = world:query(WorldWrapper:GetPlayerInteractComponent()):with(flourBagComponent):cached()
 
 function System:Process(_: number)
-	for entityId, _, intent in cachedQuery do
+	for entityId, intent in cachedQuery do
 		world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
 
 		local keyCode: Enum.KeyCode = intent.KeyCode
