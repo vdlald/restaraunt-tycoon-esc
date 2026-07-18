@@ -51,23 +51,25 @@ end
 
 function System:Process(_: number)
 	for entityId, intent in cachedQuery() do
-		world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
-
 		local keyCode: Enum.KeyCode = intent.KeyCode
 		local playerView: Types.PlayerView = intent.PlayerView
 
-		local ok, err = pcall(self.processPlayerInteract, self, entityId, playerView, keyCode)
+		local ok, resOrErr = pcall(self.processPlayerInteract, self, entityId, playerView, keyCode)
 		if not ok then
-			local trace = debug.traceback(err, 1)
+			local trace = debug.traceback(resOrErr, 1)
 			warn(`{self.ClassName}.processPlayerInteract failed\n`, trace)
+		end
+
+		if resOrErr then
+			world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
 		end
 	end
 end
 
 local Dough = require(ServerScriptService.Server.Game.Ingridient.Dough)
-function System:processPlayerInteract(target: jecs.Entity<nil>, _: Types.PlayerView, keyCode: Enum.KeyCode)
+function System:processPlayerInteract(target: jecs.Entity<nil>, _: Types.PlayerView, keyCode: Enum.KeyCode): boolean
 	if keyCode ~= Enum.KeyCode.F then
-		return
+		return false
 	end
 
 	local doughEntity, doughInstance = Dough.Pool:Get()
@@ -75,6 +77,7 @@ function System:processPlayerInteract(target: jecs.Entity<nil>, _: Types.PlayerV
 	world:set(target, WorldWrapper:GetReplaceTargetComponent(), { NewTarget = doughEntity })
 
 	FlourPool:Release(target)
+	return true
 end
 
 --

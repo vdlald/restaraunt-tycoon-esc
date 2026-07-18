@@ -66,6 +66,11 @@ local findToReplaceHoldersQuery = function()
 	return world:query(_placedComponent, WorldWrapper:GetReplaceTargetComponent())
 end
 
+-- Ищем компоненты, которые лежат на placeholder и их хотят поднять
+local findDirectItemInteract = function()
+	return world:query(_placedComponent, WorldWrapper:GetPlayerInteractComponent())
+end
+
 function System:Process(_: number)
 	for entityId, intent in findEmptyPlaceHoldersQuery() do
 		world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
@@ -105,6 +110,22 @@ function System:Process(_: number)
 
 		local ok, err = pcall(function()
 			System:processReplace(placeHolder, oldTarget, newTarget)
+		end)
+		if not ok then
+			local trace = debug.traceback(err)
+			warn(`{self.ClassName}.processPlayerInteract failed\n`, trace)
+		end
+	end
+
+	for entityId, placedComponent, intent in findDirectItemInteract() do
+		world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
+
+		local placeHolder = placedComponent.PlaceHolder
+		local keyCode: Enum.KeyCode = intent.KeyCode
+		local playerView: Types.PlayerView = intent.PlayerView
+
+		local ok, err = pcall(function()
+			System:processDirectInteract(entityId, placeHolder, playerView, keyCode)
 		end)
 		if not ok then
 			local trace = debug.traceback(err)
@@ -164,6 +185,7 @@ function System:processTake(entityId: jecs.Entity<nil>, playerView: Types.Player
 
 	-- Убираем связь
 	world:remove(entityId, jecs.pair(_holdsComponent, targetEntityId))
+	world:remove(targetEntityId, _placedComponent)
 
 	-- Выдаем в руки
 	local tool: Tool = world:get(targetEntityId, WorldWrapper:GetInstanceComponent()).Instance
@@ -195,6 +217,36 @@ function System:placeOnTop(placeable: Tool, topPart: Part)
 	local plateTop = topPart.CFrame * CFrame.new(0, topPart.Size.Y / 2, 0)
 	local targetCFrame = plateTop * CFrame.new(0, placeable.PrimaryPart.Size.Y / 2, 0)
 	placeable:SetPrimaryPartCFrame(targetCFrame)
+end
+
+-- Поднимает предмет при взаимодествии с ним
+function System:processDirectInteract(
+	placedEntity: jecs.Entity<nil>,
+	placeHolderEntity: jecs.Entity<nil>,
+	playerView: Types.PlayerView,
+	keyCode: Enum.KeyCode
+)
+	if keyCode ~= Enum.KeyCode.E then
+		return
+	end
+
+	local equippedTool = playerView:GetEquippedTool()
+	if equippedTool then
+		-- Если в руках что-то есть, то ничего не берем
+		return
+	end
+
+	-- Отвариваем
+	local weld: WeldConstraint = world:get(placeHolderEntity, jecs.pair(_holdsComponent, placedEntity))
+	weld:Destroy()
+
+	-- Убираем связь
+	world:remove(placeHolderEntity, jecs.pair(_holdsComponent, placedEntity))
+	world:remove(placedEntity, _placedComponent)
+
+	-- Выдаем в руки
+	local tool: Tool = world:get(placedEntity, WorldWrapper:GetInstanceComponent()).Instance
+	playerView:PutInHands(tool)
 end
 
 --
