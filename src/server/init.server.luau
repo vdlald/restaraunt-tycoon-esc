@@ -119,15 +119,15 @@ kitchenTableInstance3.Parent = workspace
 kitchenTableInstance3:SetPrimaryPartCFrame(CFrame.new(Vector3.new(6, 1.5, -3)))
 
 -- Тарелки
-local plateEntity1, _, platePH1 = Plate.Create()
-world:set(placeHolderEntity3, PlaceHolder.PlaceCommand, { TargetEntity = plateEntity1 })
+local plateEntity1, plateInstance1, platePH1 = Plate.Create()
+plateInstance1.Parent = workspace
+PlaceHolder.System:Place(placeHolderEntity3, plateEntity1)
 
--- local plateEntity2, _, platePH2 = Plate.Create()
--- world:set(platePH1, PlaceHolder.PlaceCommand, { TargetEntity = plateEntity2 })
+local plateEntity2, plateInstance2, platePH2 = Plate.Create()
+plateInstance2.Parent = workspace
+PlaceHolder.System:Place(platePH1, plateEntity2)
 
--- local plateEntity3, _, platePH3 = Plate.Create()
--- world:set(platePH2, PlaceHolder.PlaceCommand, { TargetEntity = plateEntity3 })
-
--- local plateEntity4, _, platePH4 = Plate.Create()
--- world:set(platePH3, PlaceHolder.PlaceCommand, { TargetEntity = plateEntity4 })
+local plateEntity3, plateInstance3, platePH3 = Plate.Create()
+plateInstance3.Parent = workspace
+PlaceHolder.System:Place(platePH2, plateEntity3)
 
