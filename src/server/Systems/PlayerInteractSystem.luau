@@ -39,6 +39,15 @@ function PlayerInteractSystem:Process(_: number)
 	end
 end
 
+function PlayerInteractSystem:Clear()
+	self:query(WorldWrapper:GetPlayerInteractComponent()):forEach(function(entity, _)
+		if not entity then
+			return
+		end
+		world:remove(entity, WorldWrapper:GetPlayerInteractComponent())
+	end)
+end
+
 function PlayerInteractSystem:processPlayerInteract(
 	playerView: Types.PlayerView,
 	target: jecs.Entity<nil>,

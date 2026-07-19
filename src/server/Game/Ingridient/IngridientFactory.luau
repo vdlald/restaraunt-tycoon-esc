@@ -78,6 +78,12 @@ end
 -- Фабрика
 local IngridientFactory = Class.defineClass("IngridientFactory")
 
+local abstractIngridientComponent = world:component()
+
+function IngridientFactory:GetAbstractIngridientComponent(): jecs.Id<nil>
+	return abstractIngridientComponent
+end
+
 function IngridientFactory:DefineIngridient(ingridientForm: IngridientForm)
 	local module = {}
 
@@ -90,6 +96,7 @@ function IngridientFactory:DefineIngridient(ingridientForm: IngridientForm)
 		instance:AddTag(Consts.Tags.Interactable)
 
 		local entity = WorldWrapper:RegisterInstance(instance, ingridientForm.IngridientName)
+		world:set(entity, abstractIngridientComponent)
 		world:set(entity, ingridientComponent)
 		world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
 

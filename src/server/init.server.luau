@@ -84,6 +84,8 @@ local RawMeatSteak = require(ServerScriptService.Server.Game.Ingridient.RawMeatS
 local ChoppedMeat = require(ServerScriptService.Server.Game.Ingridient.ChoppedMeat)
 local MinceMeat = require(ServerScriptService.Server.Game.Ingridient.MinceMeat)
 
+local Pie = require(ServerScriptService.Server.Game.Dish.Pie)
+
 local Plate = require(ServerScriptService.Server.Game.Items.Plate)
 
 local FlourBag = require(ServerScriptService.Server.Game.Furniture.FlourBag)
@@ -107,8 +109,13 @@ RunService.Heartbeat:Connect(function(deltaTime)
 	ChoppedMeat.System:Process(deltaTime)
 	MinceMeat.System:Process(deltaTime)
 
+	Pie.System:Process(deltaTime)
+
 	-- end phase
 	PlaceHolder.System:Process(deltaTime)
+
+	-- clear
+	PlayerInteractSystem:Clear()
 end)
 
 --
