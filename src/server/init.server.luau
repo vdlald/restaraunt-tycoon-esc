@@ -80,21 +80,32 @@ local Flour = require(ServerScriptService.Server.Game.Ingridient.Flour)
 local Dough = require(ServerScriptService.Server.Game.Ingridient.Dough)
 local RawPie = require(ServerScriptService.Server.Game.Ingridient.RawPie)
 
+local RawMeatSteak = require(ServerScriptService.Server.Game.Ingridient.RawMeatSteak)
+local ChoppedMeat = require(ServerScriptService.Server.Game.Ingridient.ChoppedMeat)
+local MinceMeat = require(ServerScriptService.Server.Game.Ingridient.MinceMeat)
+
 local Plate = require(ServerScriptService.Server.Game.Items.Plate)
 
 local FlourBag = require(ServerScriptService.Server.Game.Furniture.FlourBag)
+local MeatSteakFridge = require(ServerScriptService.Server.Game.Furniture.MeatSteakFridge)
 local KitchenTable = require(ServerScriptService.Server.Game.Furniture.KitchenTable)
 
 RunService.Heartbeat:Connect(function(deltaTime)
 	-- start phase
 	PlayerInteractSystem:Process(deltaTime)
 
-	-- middle phase
+	-- Фурнитура
 	FlourBag.System:Process(deltaTime)
+	MeatSteakFridge.System:Process(deltaTime)
 
+	-- Ингредиенты
 	Flour.System:Process(deltaTime)
 	Dough.System:Process(deltaTime)
 	RawPie.System:Process(deltaTime)
+
+	RawMeatSteak.System:Process(deltaTime)
+	ChoppedMeat.System:Process(deltaTime)
+	MinceMeat.System:Process(deltaTime)
 
 	-- end phase
 	PlaceHolder.System:Process(deltaTime)
@@ -104,7 +115,11 @@ end)
 -- Инициализация мира
 local _, flourBagInstance = FlourBag.Create()
 flourBagInstance.Parent = workspace
-flourBagInstance:SetPrimaryPartCFrame(CFrame.new(Vector3.new(3, 1, -2)))
+flourBagInstance:SetPrimaryPartCFrame(CFrame.new(Vector3.new(4, 1.5, 3)))
+
+local _, fridgeInstance = MeatSteakFridge.Create()
+fridgeInstance.Parent = workspace
+fridgeInstance:SetPrimaryPartCFrame(CFrame.new(Vector3.new(7, 2.5, 0)))
 
 local _, kitchenTableInstance1, _ = KitchenTable.Create()
 kitchenTableInstance1.Parent = workspace
@@ -130,4 +145,3 @@ PlaceHolder.System:Place(platePH1, plateEntity2)
 local plateEntity3, plateInstance3, platePH3 = Plate.Create()
 plateInstance3.Parent = workspace
 PlaceHolder.System:Place(platePH2, plateEntity3)
-
