@@ -6,6 +6,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Class = require(ReplicatedStorage.Shared.Class)
+local Utils = require(ReplicatedStorage.Shared.Utils)
 local Consts = require(ReplicatedStorage.Shared.Consts)
 
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -54,13 +55,11 @@ function System:Process(_: number)
 		local keyCode: Enum.KeyCode = intent.KeyCode
 		local playerView: Types.PlayerView = intent.PlayerView
 
-		local ok, resOrErr = pcall(self.processPlayerInteract, self, entityId, playerView, keyCode)
-		if not ok then
-			local trace = debug.traceback(resOrErr, 1)
-			warn(`{self.ClassName}.processPlayerInteract failed\n`, trace)
-		end
+		local res, _ = Utils:safeCall(`{self.ClassName}.processPlayerInteract`, function()
+			return self:processPlayerInteract(entityId, playerView, keyCode)
+		end)
 
-		if resOrErr then
+		if res then
 			world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
 		end
 	end

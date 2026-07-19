@@ -6,6 +6,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Val = require(ReplicatedStorage.Packages.Val)
 local Consts = require(ReplicatedStorage.Shared.Consts)
 local PlayerUtils = require(ReplicatedStorage.Shared.PlayerUtils)
 local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
@@ -15,12 +16,21 @@ local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
-player.CameraMode = Enum.CameraMode.LockFirstPerson
+-- player.CameraMode = Enum.CameraMode.LockFirstPerson
 
-local closestPart: Instance = PlayerUtils:GetClosestInteractablePartInRadius(player, Consts.InteractablePlayerDistance)
+local closestPart = Val.new(PlayerUtils:GetClosestInteractablePartInRadius(player, Consts.InteractablePlayerDistance))
 
 --
 -- Впомогательные функции
+local function getEquippedTool(): Tool
+	local character = player.Character
+	if not character then
+		return false
+	end
+
+	return character:FindFirstChildOfClass("Tool")
+end
+
 local function isFirstPerson()
 	local char = player.Character
 	if not char then
@@ -46,12 +56,12 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		return
 	end
 
-	if not closestPart then
+	if not closestPart:get() then
 		return
 	end
 
 	if Consts.InteractableAllowedKeys[input.KeyCode] then
-		local entityId = closestPart:GetAttribute(Consts.Attributes.EntityId)
+		local entityId = closestPart:get():GetAttribute(Consts.Attributes.EntityId)
 		if not entityId then
 			return
 		end
@@ -69,6 +79,32 @@ highlight.DepthMode = Enum.HighlightDepthMode.Occluded
 highlight.Enabled = false
 highlight.Parent = workspace
 
+closestPart:on(function(instance: Instance)
+	highlight.Adornee = instance
+	highlight.Enabled = instance ~= nil
+end)
+
+function IsInteractable(instance: Instance): boolean
+	if not instance or not instance:HasTag(Consts.Tags.Interactable) then
+		return false
+	end
+
+	-- Если это PlaceHolder, на котором уже что-то стоит, то не подсвечиваем
+	if instance:HasTag(Consts.Tags.PlaceHolder) and instance:HasTag(Consts.Tags.Holds) then
+		return false
+	end
+
+	-- Если есть что-то в руках
+	local equipped = getEquippedTool()
+	if equipped then
+		-- И на placeHolder ничего нет
+		return instance:HasTag(Consts.Tags.PlaceHolder) and not instance:HasTag(Consts.Tags.Holds)
+			or not instance:HasTag(Consts.Tags.PlaceHolder)
+	end
+
+	return not instance:HasTag(Consts.Tags.PlaceHolder)
+end
+
 local timePassed = 0
 RunService.Heartbeat:Connect(function(dt)
 	if isFirstPerson() then
@@ -83,15 +119,7 @@ RunService.Heartbeat:Connect(function(dt)
 
 	timePassed -= 0.1
 
-	closestPart = PlayerUtils:GetClosestInteractablePartInRadius(player, Consts.InteractablePlayerDistance)
-
-	if closestPart then
-		highlight.Adornee = closestPart
-		highlight.Enabled = true
-	else
-		highlight.Adornee = nil
-		highlight.Enabled = false
-	end
+	closestPart:set(PlayerUtils:GetClosestInteractablePartInRadius(player, Consts.InteractablePlayerDistance))
 end)
 
 RunService.RenderStepped:Connect(function(_)
@@ -110,25 +138,22 @@ RunService.RenderStepped:Connect(function(_)
 
 	local result = workspace:Raycast(origin, direction, raycastParams)
 	if not result or not result.Instance then
+		-- Ни на что не смотрим
+		closestPart:set(nil)
 		return
 	end
 
 	local part: Instance = result.Instance
-	if not part:HasTag(Consts.Tags.Interactable) then
+	if not IsInteractable(part) then
+		-- Если с текущей частью нельзя взаимодействовать, то берем родительскую часть
 		part = part:FindFirstAncestorOfClass("Model") or part:FindFirstAncestorOfClass("Tool")
 	end
 
-	if not part or not part:HasTag(Consts.Tags.Interactable) or part:HasTag(Consts.Tags.Placed) then
+	if not IsInteractable(part) then
+		-- Если родительская часть не интерактивна - выходим
+		closestPart:set(nil)
 		return
 	end
 
-	closestPart = part
-
-	if closestPart then
-		highlight.Adornee = closestPart
-		highlight.Enabled = true
-	else
-		highlight.Adornee = nil
-		highlight.Enabled = false
-	end
+	closestPart:set(part)
 end)

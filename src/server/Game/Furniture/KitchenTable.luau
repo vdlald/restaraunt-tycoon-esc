@@ -23,12 +23,12 @@ function CreateKitchenTable(): (jecs.Entity<nil>, Instance)
 	local instance: Instance = ServerStorage.Furniture.KitchenTable:Clone()
 	local top = instance:WaitForChild("top_geom")
 
-	PlaceHolder.Create(top)
+	local placeHolderEntity, _ = PlaceHolder.Create(top)
 
 	local entity = WorldWrapper:RegisterInstance(instance, "KitchenTable")
 	world:set(entity, kitchenTableComponent)
 
-	return entity, instance
+	return entity, instance, placeHolderEntity
 end
 
 --

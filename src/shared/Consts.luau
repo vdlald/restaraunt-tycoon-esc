@@ -9,7 +9,9 @@ local Consts = {
         PlayerId = "playerId",
     },
     Tags = {
+        Holds = "Holds",
         Placed = "Placed",
+        PlaceHolder = "PlaceHolder",
         Interactable = "Interactable",
     }
 }
