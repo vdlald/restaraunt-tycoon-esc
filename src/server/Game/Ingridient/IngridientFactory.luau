@@ -55,6 +55,16 @@ function IngridientSystem:Process(_: number)
 				world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
 			end
 		end)
+	
+	self:query(WorldWrapper:GetReleaseTargetComponent())
+	:with(self.ingridientComponent)
+	:forEach(function(entityId, _)
+		if not entityId then
+			return
+		end
+		world:remove(entityId, WorldWrapper:GetReleaseTargetComponent())
+		self.ingridientPool:Release(entityId)
+	end)
 end
 
 function IngridientSystem:processPlayerInteract(target: jecs.Entity<nil>, _: Types.PlayerView, keyCode: Enum.KeyCode)

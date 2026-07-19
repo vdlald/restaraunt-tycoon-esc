@@ -38,6 +38,10 @@ local playerInteractComponent = world:component() :: PlayerInteractComponent
 export type ReplaceTargetComponent = jecs.Id<{ NewTarget: jecs.Entity<nil> }>
 local replaceTargetComponent = world:component() :: ReplaceTargetComponent
 
+-- ReleaseTarget - вызывает destroy или возвращает в пул
+export type ReleaseTargetComponent = jecs.Id<nil>
+local releaseTargetComponent = world:component() :: ReleaseTargetComponent
+
 --
 -- Объявление WorldWrapper
 --
@@ -54,6 +58,8 @@ export type WorldWrapper = {
 	GetPlayerInteractableComponent: (self: WorldWrapper) -> PlayerInteractableComponent,
 
 	GetReplaceTargetComponent: (self: WorldWrapper) -> ReplaceTargetComponent,
+
+	GetReleaseTargetComponent: (self: WorldWrapper) -> ReleaseTargetComponent,
 
 	-- lookup
 	FindPlayer: (self: WorldWrapper, playerId: jecs.Entity<nil>) -> Types.PlayerView?,
@@ -94,6 +100,10 @@ end
 
 function WorldWrapper:GetReplaceTargetComponent(): ReplaceTargetComponent
 	return replaceTargetComponent
+end
+
+function WorldWrapper:GetReleaseTargetComponent(): ReleaseTargetComponent
+	return releaseTargetComponent
 end
 
 function WorldWrapper:FindPlayer(playerId: jecs.Entity<nil>): Types.PlayerView?

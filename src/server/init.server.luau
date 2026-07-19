@@ -91,12 +91,14 @@ local Plate = require(ServerScriptService.Server.Game.Items.Plate)
 local FlourBag = require(ServerScriptService.Server.Game.Furniture.FlourBag)
 local MeatSteakFridge = require(ServerScriptService.Server.Game.Furniture.MeatSteakFridge)
 local KitchenTable = require(ServerScriptService.Server.Game.Furniture.KitchenTable)
+local Trashcan = require(ServerScriptService.Server.Game.Furniture.Trashcan)
 
 RunService.Heartbeat:Connect(function(deltaTime)
 	-- start phase
 	PlayerInteractSystem:Process(deltaTime)
 
 	-- Фурнитура
+	Trashcan.System:Process(deltaTime)
 	FlourBag.System:Process(deltaTime)
 	MeatSteakFridge.System:Process(deltaTime)
 
@@ -120,6 +122,10 @@ end)
 
 --
 -- Инициализация мира
+local _, trashcanInstance = Trashcan.Create()
+trashcanInstance.Parent = workspace
+trashcanInstance:SetPrimaryPartCFrame(CFrame.new(Vector3.new(10, 1.5, 3)))
+
 local _, flourBagInstance = FlourBag.Create()
 flourBagInstance.Parent = workspace
 flourBagInstance:SetPrimaryPartCFrame(CFrame.new(Vector3.new(4, 1.5, 3)))
