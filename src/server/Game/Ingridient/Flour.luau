@@ -6,7 +6,6 @@ local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Class = require(ReplicatedStorage.Shared.Class)
-local Utils = require(ReplicatedStorage.Shared.Utils)
 local Consts = require(ReplicatedStorage.Shared.Consts)
 
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -46,23 +45,18 @@ function System.new(): AbstractSystem.AbstractSystem
 	return self
 end
 
-local cachedQuery = function()
-	return world:query(WorldWrapper:GetPlayerInteractComponent()):with(flourComponent)
-end
-
 function System:Process(_: number)
-	for entityId, intent in cachedQuery() do
+	self:query(WorldWrapper:GetPlayerInteractComponent()):with(flourComponent):forEach(function(entityId, intent)
+		if not entityId then
+			return
+		end
 		local keyCode: Enum.KeyCode = intent.KeyCode
 		local playerView: Types.PlayerView = intent.PlayerView
-
-		local res, _ = Utils:safeCall(`{self.ClassName}.processPlayerInteract`, function()
-			return self:processPlayerInteract(entityId, playerView, keyCode)
-		end)
-
-		if res then
+		local processed = self:processPlayerInteract(entityId, playerView, keyCode)
+		if processed then
 			world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
 		end
-	end
+	end)
 end
 
 local Dough = require(ServerScriptService.Server.Game.Ingridient.Dough)
