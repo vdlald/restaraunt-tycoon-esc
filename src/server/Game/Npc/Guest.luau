@@ -17,18 +17,18 @@ local world = WorldWrapper:GetWorld()
 
 --
 -- Компонент
-export type TrashcanComponent = jecs.Id<nil>
-local TrashcanComponent = world:component() :: TrashcanComponent
+export type GuestNpcComponent = jecs.Id<nil>
+local GuestNpcComponent = world:component() :: GuestNpcComponent
 
 --
 -- Объявление сущности
-function CreateTrashcan(): (jecs.Entity<nil>, Instance)
-	local instance: Instance = ServerStorage.Furniture.Trashcan:Clone()
-	instance:AddTag("Interactable")
+function CreateGuestNpc(): (jecs.Entity<nil>, Instance)
+	local instance: Instance = ServerStorage.NPC.Guest:Clone()
+    instance:AddTag("Interactable")
 
 	local entity = WorldWrapper:RegisterInstance(instance, "Trashcan")
-	world:set(entity, TrashcanComponent)
-	world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
+	world:set(entity, GuestNpcComponent)
+    world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
 
 	return entity, instance
 end
@@ -41,7 +41,7 @@ function System.new()
 	local parent = AbstractSystem.new()
 	local self = setmetatable(parent, System)
 
-	self.cachedQuery = world:query(WorldWrapper:GetPlayerInteractComponent()):with(TrashcanComponent):cached()
+	self.cachedQuery = world:query(WorldWrapper:GetPlayerInteractComponent()):with(GuestNpcComponent):cached()
 
 	return self
 end
@@ -60,32 +60,33 @@ function System:Process(_: number)
 end
 
 local DishFactory = require(ServerScriptService.Server.Game.Dish.DishFactory)
-local IngridientFactory = require(ServerScriptService.Server.Game.Ingridient.IngridientFactory)
 
-function System:processPlayerInteract(_: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
+function System:processPlayerInteract(
+	_: jecs.Entity<nil>,
+	playerView: Types.PlayerView,
+	keyCode: Enum.KeyCode
+)
 	if keyCode ~= Enum.KeyCode.E then
 		return
 	end
 
 	local equippedTool = playerView:GetEquippedTool()
 	if not equippedTool then
-		return
+        return
 	end
 
-	if
-		not world:has(equippedTool, IngridientFactory:GetAbstractIngridientComponent())
-		and not world:has(equippedTool, DishFactory:GetAbstractDishComponent())
-	then
-		return
-	end
-	world:set(equippedTool, WorldWrapper:GetReleaseTargetComponent())
-	playerView:TakeFromHands()
+    if not world:has(equippedTool, DishFactory:GetAbstractDishComponent()) then
+        return
+    end
+    world:set(equippedTool, WorldWrapper:GetReleaseTargetComponent())
+    playerView:TakeFromHands()
+    print("dish eaten")
 end
 
 --
 -- Модуль
 return {
-	Create = CreateTrashcan,
-	Component = TrashcanComponent,
-	System = System.new(),
+	Create = CreateGuestNpc,
+	Component = GuestNpcComponent,
+    System = System.new(),
 }

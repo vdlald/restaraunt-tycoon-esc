@@ -76,6 +76,8 @@ local RunService = game:GetService("RunService")
 local PlaceHolder = require(ServerScriptService.Server.Components.PlaceHolder)
 local PlayerInteractSystem = require(ServerScriptService.Server.Systems.PlayerInteractSystem)
 
+local GuestNpc = require(ServerScriptService.Server.Game.Npc.Guest)
+
 local Flour = require(ServerScriptService.Server.Game.Ingridient.Flour)
 local Dough = require(ServerScriptService.Server.Game.Ingridient.Dough)
 local RawPie = require(ServerScriptService.Server.Game.Ingridient.RawPie)
@@ -96,6 +98,9 @@ local Trashcan = require(ServerScriptService.Server.Game.Furniture.Trashcan)
 RunService.Heartbeat:Connect(function(deltaTime)
 	-- start phase
 	PlayerInteractSystem:Process(deltaTime)
+
+	-- NPC
+	GuestNpc.System:Process(deltaTime)
 
 	-- Фурнитура
 	Trashcan.System:Process(deltaTime)
@@ -158,3 +163,7 @@ PlaceHolder.System:Place(platePH1, plateEntity2)
 local plateEntity3, plateInstance3, platePH3 = Plate.Create()
 plateInstance3.Parent = workspace
 PlaceHolder.System:Place(platePH2, plateEntity3)
+
+-- Npc
+local guestEntity, guestInstance = GuestNpc.Create()
+guestInstance.Parent = workspace

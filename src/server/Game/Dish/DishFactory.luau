@@ -75,6 +75,16 @@ function DishSystem:Process(_: number)
 				world:remove(dishEntity, WorldWrapper:GetPlayerInteractComponent())
 			end
 		end)
+
+	self:query(WorldWrapper:GetReleaseTargetComponent())
+		:with(self.DishComponent)
+		:forEach(function(entityId: jecs.Entity<nil>, _)
+			if not entityId then
+				return
+			end
+			world:remove(entityId, WorldWrapper:GetReleaseTargetComponent())
+			self.DishPool:Release(entityId)
+		end)
 end
 
 function DishSystem:combineIngridients(target: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
@@ -127,6 +137,12 @@ end
 -- Фабрика
 local DishFactory = Class.defineClass("DishFactory")
 
+local abstractDishComponent = world:component()
+
+function DishFactory:GetAbstractDishComponent(): jecs.Id<nil>
+	return abstractDishComponent
+end
+
 function DishFactory:DefineDish(DishForm: DishForm)
 	local module = {}
 
@@ -139,6 +155,7 @@ function DishFactory:DefineDish(DishForm: DishForm)
 		instance:AddTag(Consts.Tags.Interactable)
 
 		local entity = WorldWrapper:RegisterInstance(instance, DishForm.DishName)
+		world:set(entity, abstractDishComponent)
 		world:set(entity, DishComponent)
 		world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
 
