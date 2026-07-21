@@ -95,6 +95,16 @@ local DataManager = {}
 
 local onProfileDataChanged = function(event: PlayerDataChangedEvent) end
 
+-- Подключить callback на изменение данных
+function DataManager:OnProfileDataChanged(handler: typeof(onProfileDataChanged))
+	local previous = onProfileDataChanged
+
+	onProfileDataChanged = function(event: PlayerDataChangedEvent)
+		previous(event)
+		handler(event)
+	end
+end
+
 -- Создает копию данных пользователя
 function DataManager:GetReadOnlyVersion(player: Player): PlayerData?
 	local profile = Profiles[player]
@@ -137,8 +147,8 @@ function DataManager:MutateData(
 		if not profile:IsActive() then
 			return false
 		end
-	-- Проверяем, что у профиля не изменилась ревизия (оптимистичная блокировка)
-	until profile.Data.Revision ~= playerData.Revision or profile.Data.LastPatchName ~= playerData.LastPatchName
+	-- Принимаем изменения только если ревизия не изменилась (оптимистичная блокировка)
+	until profile.Data.Revision == playerData.Revision or profile.Data.LastPatchName == playerData.LastPatchName
 
 	-- Системные данные в изменениях данных
 	playerData.Revision += 1
@@ -147,6 +157,7 @@ function DataManager:MutateData(
 	-- Сохраняем изменения
 	profile.Data = playerData
 
+	-- Публикуем изменения
 	Utils:safeCall("onProfileDataChanged", function()
 		onProfileDataChanged({
 			Player = player,
@@ -155,13 +166,6 @@ function DataManager:MutateData(
 	end)
 
 	return true
-end
-
-function DataManager:OnProfileDataChanged(handler: typeof(onProfileDataChanged))
-	onProfileDataChanged = function(event: PlayerDataChangedEvent)
-		onProfileDataChanged(event)
-		handler(event)
-	end
 end
 
 --

@@ -10,6 +10,7 @@ local Utils = require(ReplicatedStorage.Shared.Utils)
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Types)
+local DataManager = require(ServerScriptService.Server.Player.DataManager)
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
 
 local WorldWrapper = require(ServerScriptService.Server.World)
@@ -24,11 +25,11 @@ local GuestNpcComponent = world:component() :: GuestNpcComponent
 -- Объявление сущности
 function CreateGuestNpc(): (jecs.Entity<nil>, Instance)
 	local instance: Instance = ServerStorage.NPC.Guest:Clone()
-    instance:AddTag("Interactable")
+	instance:AddTag("Interactable")
 
 	local entity = WorldWrapper:RegisterInstance(instance, "Trashcan")
 	world:set(entity, GuestNpcComponent)
-    world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
+	world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
 
 	return entity, instance
 end
@@ -61,26 +62,25 @@ end
 
 local DishFactory = require(ServerScriptService.Server.Game.Dish.DishFactory)
 
-function System:processPlayerInteract(
-	_: jecs.Entity<nil>,
-	playerView: Types.PlayerView,
-	keyCode: Enum.KeyCode
-)
+function System:processPlayerInteract(_: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
 	if keyCode ~= Enum.KeyCode.E then
 		return
 	end
 
 	local equippedTool = playerView:GetEquippedTool()
 	if not equippedTool then
-        return
+		return
 	end
 
-    if not world:has(equippedTool, DishFactory:GetAbstractDishComponent()) then
-        return
-    end
-    world:set(equippedTool, WorldWrapper:GetReleaseTargetComponent())
-    playerView:TakeFromHands()
-    print("dish eaten")
+	if not world:has(equippedTool, DishFactory:GetAbstractDishComponent()) then
+		return
+	end
+	world:set(equippedTool, WorldWrapper:GetReleaseTargetComponent())
+	playerView:TakeFromHands()
+
+	DataManager:MutateData("feedGuest", playerView:GetPlayer(), function(data)
+		data.CoinsEarned += 10
+	end)
 end
 
 --
@@ -88,5 +88,5 @@ end
 return {
 	Create = CreateGuestNpc,
 	Component = GuestNpcComponent,
-    System = System.new(),
+	System = System.new(),
 }
