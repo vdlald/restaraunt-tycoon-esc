@@ -24,10 +24,10 @@ local closestPart = Val.new(PlayerUtils:GetClosestInteractablePartInRadius(playe
 
 --
 -- Впомогательные функции
-local function getEquippedTool(): Tool
+local function getEquippedTool(): Tool?
 	local character = player.Character
 	if not character then
-		return false
+		return nil
 	end
 
 	return character:FindFirstChildOfClass("Tool")
@@ -57,13 +57,14 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
-
-	if not closestPart:get() then
+	
+	local part = closestPart:get()
+	if not part then
 		return
 	end
 
 	if Consts.InteractableAllowedKeys[input.KeyCode] then
-		local entityId = closestPart:get():GetAttribute(Consts.Attributes.EntityId)
+		local entityId = part:GetAttribute(Consts.Attributes.EntityId)
 		if not entityId then
 			return
 		end

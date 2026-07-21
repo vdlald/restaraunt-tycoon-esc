@@ -1,3 +1,5 @@
+--!strict
+
 -- Зависимости
 local ServerScriptService = game:GetService("ServerScriptService")
 local DataManager = require(ServerScriptService.Server.Player.DataManager) -- грузим первым DataManager
@@ -41,6 +43,11 @@ Net.playerInteract.listen(function(data: table, player: Player)
 	local playerView: Types.PlayerView? = WorldWrapper:FindPlayer(playerId)
 	if not playerView then
 		error("unknown userId=" .. player.UserId)
+		return
+	end
+
+	if not world:contains(entityId) then
+		warn("suspicious player interaction, unfound entityId="..entityId)
 		return
 	end
 

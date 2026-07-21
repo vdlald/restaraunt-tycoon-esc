@@ -27,7 +27,7 @@ function AbstractSystem.new()
 end
 
 function AbstractSystem:Process(deltaTime: number)
-	if self:IsThrottled() then
+	if self:IsThrottled(deltaTime) then
 		return
 	end
 end

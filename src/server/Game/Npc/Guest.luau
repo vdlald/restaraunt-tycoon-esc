@@ -27,7 +27,7 @@ function CreateGuestNpc(): (jecs.Entity<nil>, Instance)
 	local instance: Instance = ServerStorage.NPC.Guest:Clone()
 	instance:AddTag("Interactable")
 
-	local entity = WorldWrapper:RegisterInstance(instance, "Trashcan")
+	local entity = WorldWrapper:RegisterInstance(instance, "GuestNpc")
 	world:set(entity, GuestNpcComponent)
 	world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
 

@@ -148,7 +148,7 @@ function DataManager:MutateData(
 			return false
 		end
 	-- Принимаем изменения только если ревизия не изменилась (оптимистичная блокировка)
-	until profile.Data.Revision == playerData.Revision or profile.Data.LastPatchName == playerData.LastPatchName
+	until profile.Data.Revision == playerData.Revision and profile.Data.LastPatchName == playerData.LastPatchName
 
 	-- Системные данные в изменениях данных
 	playerData.Revision += 1

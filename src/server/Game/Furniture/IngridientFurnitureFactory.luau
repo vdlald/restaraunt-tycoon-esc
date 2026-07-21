@@ -91,7 +91,7 @@ function IngridientFurnitureFactory:DefineFurniture(form: IngridientFurnitureFor
 	module.Component = furnitureComponent
 
 	module.Create = function(): (jecs.Entity<nil>, Instance)
-		local instance: Instance = form.Template
+		local instance: Instance = form.Template:Clone()
 		instance:AddTag(Consts.Tags.Interactable)
 
 		local entity = WorldWrapper:RegisterInstance(instance, form.FurnitureName)

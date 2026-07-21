@@ -1,3 +1,5 @@
+--!strict
+
 -- Зависимости
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Consts = require(ReplicatedStorage.Shared.Consts)
@@ -115,7 +117,7 @@ function WorldWrapper:FindPlayer(playerId: jecs.Entity<nil>): Types.PlayerView?
 end
 
 function WorldWrapper:FindInstance(entityId: jecs.Entity<nil>): Instance?
-	local componentData: Instance = world:get(entityId, instanceComponent)
+	local componentData = world:get(entityId, instanceComponent)
 	if not componentData then
 		return nil
 	end

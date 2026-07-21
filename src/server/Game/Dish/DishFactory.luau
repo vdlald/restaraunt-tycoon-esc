@@ -113,8 +113,14 @@ function DishSystem:combineIngridients(target: jecs.Entity<nil>, playerView: Typ
 	return true
 end
 
-function DishSystem:combineDish(target: jecs.Entity<nil>, _: Types.PlayerView, keyCode: Enum.KeyCode)
+function DishSystem:combineDish(target: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
 	if keyCode ~= Enum.KeyCode.E then
+		return false
+	end
+
+	local equipped = playerView:GetEquippedTool()
+	if not equipped or not world:has(equipped, IngridientFactory:GetAbstractIngridientComponent()) then
+		-- Если в руках ничего нет или держим не ингредиент, то выходим
 		return false
 	end
 
@@ -122,7 +128,7 @@ function DishSystem:combineDish(target: jecs.Entity<nil>, _: Types.PlayerView, k
 		return false
 	end
 
-	local nextEntity, nextInstance = self._combineDish(target)
+	local nextEntity, nextInstance = self._combineDish(target, equipped)
 	if not nextEntity then
 		return false
 	end
