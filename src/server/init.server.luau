@@ -1,6 +1,6 @@
 -- Зависимости
 local ServerScriptService = game:GetService("ServerScriptService")
-require(ServerScriptService.Server.Player.DataManager) -- грузим первым DataManager
+local DataManager = require(ServerScriptService.Server.Player.DataManager) -- грузим первым DataManager
 local Types = require(ServerScriptService.Server.Types)
 local ObjectPool = require(ServerScriptService.Server.ObjectPool)
 
@@ -10,15 +10,18 @@ local world = WorldWrapper:GetWorld()
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Consts = require(ReplicatedStorage.Shared.Consts)
 
+--
 -- Login
 local Players = game:GetService("Players")
 Players.PlayerAdded:Connect(function(player)
 	WorldWrapper:RegisterPlayer(player)
 end)
 
+--
 -- Serve
 local Net = require(ReplicatedStorage.Shared.Net)
 
+-- Обрабатываем взаимодействие пользователя с миром
 Net.playerInteract.listen(function(data: table, player: Player)
 	local entityId: number = data.entityId
 	local keyCode = Enum.KeyCode:FromValue(data.keyCode)
@@ -72,6 +75,17 @@ Net.playerInteract.listen(function(data: table, player: Player)
 	world:set(playerId, WorldWrapper:GetWantsToInteractComponent(), { Target = entityId, KeyCode = keyCode })
 end)
 
+-- Синхронизируем изменения данных пользователя
+DataManager:OnProfileDataChanged(function(event: DataManager.PlayerDataChangedEvent)
+	local player = event.Player
+	local playerData = event.Data
+
+	Net.playerDataUpdate.sendTo({
+		coins = playerData.CoinsEarned - playerData.CoinsSpend,
+	}, player)
+end)
+
+--
 -- Системы
 local RunService = game:GetService("RunService")
 local PlaceHolder = require(ServerScriptService.Server.Components.PlaceHolder)

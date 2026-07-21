@@ -1,15 +1,17 @@
 --!strict
 
 -- Зависимости
-local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
+local UI = require(StarterPlayer.StarterPlayerScripts.Client.UI)
+local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
+
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Val = require(ReplicatedStorage.Packages.Val)
 local Consts = require(ReplicatedStorage.Shared.Consts)
 local PlayerUtils = require(ReplicatedStorage.Shared.PlayerUtils)
-local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
 
 --
 -- Общие переменные

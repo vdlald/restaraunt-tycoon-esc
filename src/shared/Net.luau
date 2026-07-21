@@ -12,6 +12,13 @@ local Net = ByteNet.defineNamespace("Game", function()
 				keyCode = ByteNet.uint8,
 			}),
 		}),
+
+		-- Обновление данных пользователя
+		playerDataUpdate = ByteNet.definePacket({
+			value = ByteNet.struct({
+				coins = ByteNet.int32,
+			})
+		})
 	}
 end)
 

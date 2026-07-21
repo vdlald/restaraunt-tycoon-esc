@@ -12,4 +12,8 @@ function NetClient:PlayerInteract(entityId: number, keyCode: Enum.KeyCode)
 	})
 end
 
+Net.playerDataUpdate.listen(function(data)
+	local coins = data.coins
+end)
+
 return NetClient
