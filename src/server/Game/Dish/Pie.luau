@@ -48,7 +48,6 @@ local Dish = DishFactory:DefineDish({
 
 		return self.DishPool:Get()
 	end,
-	CombineDish = function(self, dish: jecs.Entity<nil>, ingredient: jecs.Entity<nil>) end,
 })
 
 return Dish

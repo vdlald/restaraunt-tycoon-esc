@@ -19,7 +19,7 @@ local world = WorldWrapper:GetWorld()
 export type IngredientForm = {
 	IngredientName: string,
 	Template: Tool,
-	HandsMorphFunc: (jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance), -- функция превращения из одного ингредиента в другой
+	HandsMorphFunc: ((jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance))?, -- функция превращения из одного ингредиента в другой
 }
 
 --
@@ -29,7 +29,7 @@ local IngredientSystem = Class.defineClass("IngredientSystem", AbstractSystem)
 function IngredientSystem.new(
 	ingredientPool, -- пул объектов
 	ingredientComponent, -- система для компонента
-	handsMorphFunc: (jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance)
+	handsMorphFunc: ((jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance))?
 ): AbstractSystem.AbstractSystem
 	local parent = AbstractSystem.new()
 	local self = setmetatable(parent, IngredientSystem)
@@ -42,19 +42,21 @@ function IngredientSystem.new(
 end
 
 function IngredientSystem:Process(_: number)
-	self:query(WorldWrapper:GetPlayerInteractComponent())
-		:with(self.ingredientComponent)
-		:forEach(function(entityId, intent)
-			if not entityId then
-				return
-			end
-			local keyCode: Enum.KeyCode = intent.KeyCode
-			local playerView: Types.PlayerView = intent.PlayerView
-			local processed = self:processPlayerInteract(entityId, playerView, keyCode)
-			if processed then
-				world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
-			end
-		end)
+	if self.handsMorphFunc then
+		self:query(WorldWrapper:GetPlayerInteractComponent())
+			:with(self.ingredientComponent)
+			:forEach(function(entityId, intent)
+				if not entityId then
+					return
+				end
+				local keyCode: Enum.KeyCode = intent.KeyCode
+				local playerView: Types.PlayerView = intent.PlayerView
+				local processed = self:processPlayerInteract(entityId, playerView, keyCode)
+				if processed then
+					world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
+				end
+			end)
+	end
 
 	self:query(WorldWrapper:GetReleaseTargetComponent())
 		:with(self.ingredientComponent)

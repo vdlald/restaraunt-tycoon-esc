@@ -67,9 +67,9 @@ function IngredientFurnitureSystem:processPlayerInteract(
 
 	local equippedTool = playerView:GetEquippedTool()
 	if not equippedTool then
-		local _, flourInstance = self.ingredientPool:Get()
-		flourInstance.Parent = workspace
-		playerView:PutInHands(flourInstance)
+		local _, ingredientInstance = self.ingredientPool:Get()
+		ingredientInstance.Parent = workspace
+		playerView:PutInHands(ingredientInstance)
 		return
 	end
 

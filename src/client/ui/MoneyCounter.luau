@@ -13,13 +13,9 @@ local useEffect = React.useEffect
 --
 -- Компонент
 local function MoneyCounter()
-	local money, setMoney = useState(0)
+	local money, setMoney = useState(State.Coins:get())
 
 	useEffect(function()
-		-- инициализация текущим значением
-		setMoney(State.Coins:get())
-
-		-- подписка на изменения
 		local disconnectCoins = State.Coins:on(function(newValue)
 			setMoney(newValue)
 		end)
