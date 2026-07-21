@@ -16,34 +16,34 @@ local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
 
 --
--- IngridientFurnitureForm
-export type IngridientFurnitureForm = {
+-- IngredientFurnitureForm
+export type IngredientFurnitureForm = {
 	FurnitureName: string,
 	Template: Model,
-	IngridientPool: ObjectPool.ObjectPool, -- пул ингредиента
-	IngridientComponent: jecs.Id<nil>,
+	IngredientPool: ObjectPool.ObjectPool, -- пул ингредиента
+	IngredientComponent: jecs.Id<nil>,
 }
 
 --
 -- Объявление обработчика
-local IngridientFurnitureSystem = Class.defineClass("IngridientFurnitureSystem", AbstractSystem)
+local IngredientFurnitureSystem = Class.defineClass("IngredientFurnitureSystem", AbstractSystem)
 
-function IngridientFurnitureSystem.new(
+function IngredientFurnitureSystem.new(
 	furnitureComponent: jecs.Id<nil>,
-	ingridientComponent: jecs.Id<nil>,
-	ingridientPool: ObjectPool.ObjectPool
+	ingredientComponent: jecs.Id<nil>,
+	ingredientPool: ObjectPool.ObjectPool
 )
 	local parent = AbstractSystem.new()
-	local self = setmetatable(parent, IngridientFurnitureSystem)
+	local self = setmetatable(parent, IngredientFurnitureSystem)
 
 	self.cachedQuery = world:query(WorldWrapper:GetPlayerInteractComponent()):with(furnitureComponent):cached()
-	self.ingridientPool = ingridientPool
-	self.ingridientComponent = ingridientComponent
+	self.ingredientPool = ingredientPool
+	self.ingredientComponent = ingredientComponent
 
 	return self
 end
 
-function IngridientFurnitureSystem:Process(_: number)
+function IngredientFurnitureSystem:Process(_: number)
 	for entityId, intent in self.cachedQuery do
 		world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
 
@@ -56,7 +56,7 @@ function IngridientFurnitureSystem:Process(_: number)
 	end
 end
 
-function IngridientFurnitureSystem:processPlayerInteract(
+function IngredientFurnitureSystem:processPlayerInteract(
 	_: jecs.Entity<nil>,
 	playerView: Types.PlayerView,
 	keyCode: Enum.KeyCode
@@ -67,23 +67,23 @@ function IngridientFurnitureSystem:processPlayerInteract(
 
 	local equippedTool = playerView:GetEquippedTool()
 	if not equippedTool then
-		local _, flourInstance = self.ingridientPool:Get()
+		local _, flourInstance = self.ingredientPool:Get()
 		flourInstance.Parent = workspace
 		playerView:PutInHands(flourInstance)
 		return
 	end
 
-	if world:has(equippedTool, self.ingridientComponent) then
+	if world:has(equippedTool, self.ingredientComponent) then
 		playerView:TakeFromHands()
-		self.ingridientPool:Release(equippedTool)
+		self.ingredientPool:Release(equippedTool)
 	end
 end
 
 --
 -- Фабрика
-local IngridientFurnitureFactory = Class.defineClass("IngridientFurnitureFactory")
+local IngredientFurnitureFactory = Class.defineClass("IngredientFurnitureFactory")
 
-function IngridientFurnitureFactory:DefineFurniture(form: IngridientFurnitureForm)
+function IngredientFurnitureFactory:DefineFurniture(form: IngredientFurnitureForm)
 	local module = {}
 
 	local furnitureComponent = world:component()
@@ -101,9 +101,9 @@ function IngridientFurnitureFactory:DefineFurniture(form: IngridientFurnitureFor
 		return entity, instance
 	end
 
-	module.System = IngridientFurnitureSystem.new(furnitureComponent, form.IngridientComponent, form.IngridientPool)
+	module.System = IngredientFurnitureSystem.new(furnitureComponent, form.IngredientComponent, form.IngredientPool)
 
 	return module
 end
 
-return IngridientFurnitureFactory
+return IngredientFurnitureFactory

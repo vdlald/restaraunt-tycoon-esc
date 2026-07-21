@@ -131,9 +131,9 @@ Placeholders are created by calling `PlaceHolder.Create(topPart)` on the part th
 
 Reusable objects are created through factories backed by `ObjectPool` (`src/server/ObjectPool.luau`):
 
-- `IngridientFactory` — craftable ingredients that morph into another ingredient when used (`HandsMorhpFunc`).
+- `IngredientFactory` — craftable ingredients that morph into another ingredient when used (`HandsMorphFunc`).
 - `DishFactory` — dishes created by combining ingredients.
-- `IngridientFurnitureFactory` — furniture that dispenses or accepts a specific ingredient.
+- `IngredientFurnitureFactory` — furniture that dispenses or accepts a specific ingredient.
 
 Each factory module returns `{ Component, Pool, System }`. New ingredients/dishes are added by defining a new module that calls the appropriate factory and then wiring its `System` into the heartbeat in `src/server/init.server.luau`.
 
@@ -165,7 +165,7 @@ To use DataStores in Studio, enable **Studio → Game Settings → Security → 
 
 Typical steps:
 
-1. Add the model/tool template under `ServerStorage` (category folders already exist: `Furniture`, `Ingridient`, `Dish`, `Items`, `NPC`).
+1. Add the model/tool template under `ServerStorage` (category folders already exist: `Furniture`, `Ingredient`, `Dish`, `Items`, `NPC`).
 2. If the content is reusable/poolable, create a module under `src/server/Game/<Category>/` that uses the appropriate factory.
 3. If it needs custom logic, create a system subclassing `AbstractSystem` and process `PlayerInteractComponent`.
 4. Wire the new `System` into the heartbeat order in `src/server/init.server.luau`.

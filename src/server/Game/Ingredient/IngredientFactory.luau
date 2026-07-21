@@ -15,35 +15,35 @@ local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
 
 --
--- IngridientForm
-export type IngridientForm = {
-	IngridientName: string,
+-- IngredientForm
+export type IngredientForm = {
+	IngredientName: string,
 	Template: Tool,
-	HandsMorhpFunc: (jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance), -- функция превращения из одного ингридиента в другой
+	HandsMorphFunc: (jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance), -- функция превращения из одного ингредиента в другой
 }
 
 --
 -- Обработчик
-local IngridientSystem = Class.defineClass("IngridientSystem", AbstractSystem)
+local IngredientSystem = Class.defineClass("IngredientSystem", AbstractSystem)
 
-function IngridientSystem.new(
-	ingridientPool, -- пул объектов
-	ingridientComponent, -- система для компонента
-	handsMorhpFunc: (jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance)
+function IngredientSystem.new(
+	ingredientPool, -- пул объектов
+	ingredientComponent, -- система для компонента
+	handsMorphFunc: (jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance)
 ): AbstractSystem.AbstractSystem
 	local parent = AbstractSystem.new()
-	local self = setmetatable(parent, IngridientSystem)
+	local self = setmetatable(parent, IngredientSystem)
 
-	self.ingridientPool = ingridientPool
-	self.ingridientComponent = ingridientComponent
-	self.handsMorhpFunc = handsMorhpFunc
+	self.ingredientPool = ingredientPool
+	self.ingredientComponent = ingredientComponent
+	self.handsMorphFunc = handsMorphFunc
 
 	return self
 end
 
-function IngridientSystem:Process(_: number)
+function IngredientSystem:Process(_: number)
 	self:query(WorldWrapper:GetPlayerInteractComponent())
-		:with(self.ingridientComponent)
+		:with(self.ingredientComponent)
 		:forEach(function(entityId, intent)
 			if not entityId then
 				return
@@ -57,65 +57,65 @@ function IngridientSystem:Process(_: number)
 		end)
 
 	self:query(WorldWrapper:GetReleaseTargetComponent())
-		:with(self.ingridientComponent)
+		:with(self.ingredientComponent)
 		:forEach(function(entityId: jecs.Entity<nil>, _)
 			if not entityId then
 				return
 			end
 			world:remove(entityId, WorldWrapper:GetReleaseTargetComponent())
-			self.ingridientPool:Release(entityId)
+			self.ingredientPool:Release(entityId)
 		end)
 end
 
-function IngridientSystem:processPlayerInteract(target: jecs.Entity<nil>, _: Types.PlayerView, keyCode: Enum.KeyCode)
+function IngredientSystem:processPlayerInteract(target: jecs.Entity<nil>, _: Types.PlayerView, keyCode: Enum.KeyCode)
 	if keyCode ~= Enum.KeyCode.F then
 		return false
 	end
 
-	if not self.handsMorhpFunc then
+	if not self.handsMorphFunc then
 		return false
 	end
 
-	local nextEntity, nextInstance = self.handsMorhpFunc(target)
+	local nextEntity, nextInstance = self.handsMorphFunc(target)
 	nextInstance.Parent = workspace
 	world:set(target, WorldWrapper:GetReplaceTargetComponent(), { NewTarget = nextEntity })
 
-	self.ingridientPool:Release(target)
+	self.ingredientPool:Release(target)
 	return true
 end
 
 --
 -- Фабрика
-local IngridientFactory = Class.defineClass("IngridientFactory")
+local IngredientFactory = Class.defineClass("IngredientFactory")
 
-local abstractIngridientComponent = world:component()
+local abstractIngredientComponent = world:component()
 
-function IngridientFactory:GetAbstractIngridientComponent(): jecs.Id<nil>
-	return abstractIngridientComponent
+function IngredientFactory:GetAbstractIngredientComponent(): jecs.Id<nil>
+	return abstractIngredientComponent
 end
 
-function IngridientFactory:DefineIngridient(ingridientForm: IngridientForm)
+function IngredientFactory:DefineIngredient(ingredientForm: IngredientForm)
 	local module = {}
 
-	local ingridientComponent = world:component()
+	local ingredientComponent = world:component()
 
-	module.Component = ingridientComponent
+	module.Component = ingredientComponent
 
 	module.Pool = ObjectPool.new(function()
-		local instance: Tool = ingridientForm.Template:Clone()
+		local instance: Tool = ingredientForm.Template:Clone()
 		instance:AddTag(Consts.Tags.Interactable)
 
-		local entity = WorldWrapper:RegisterInstance(instance, ingridientForm.IngridientName)
-		world:set(entity, abstractIngridientComponent)
-		world:set(entity, ingridientComponent)
+		local entity = WorldWrapper:RegisterInstance(instance, ingredientForm.IngredientName)
+		world:set(entity, abstractIngredientComponent)
+		world:set(entity, ingredientComponent)
 		world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
 
 		return entity, instance
 	end, 5)
 
-	module.System = IngridientSystem.new(module.Pool, ingridientComponent, ingridientForm.HandsMorhpFunc)
+	module.System = IngredientSystem.new(module.Pool, ingredientComponent, ingredientForm.HandsMorphFunc)
 
 	return module
 end
 
-return IngridientFactory
+return IngredientFactory

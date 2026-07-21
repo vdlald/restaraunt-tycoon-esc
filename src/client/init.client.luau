@@ -57,7 +57,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
-	
+
 	local part = closestPart:get()
 	if not part then
 		return

@@ -19,9 +19,9 @@ function PlayerUtils:GetClosestInteractablePartInRadius(player: Player, radius: 
 
 	for _, part: Instance in ipairs(parts) do
 		local parent: Instance = part.Parent
-		if not parent or parent == workspace then 
+		if not parent or parent == workspace then
 			continue
-		end 
+		end
 		if CollectionService:HasTag(parent, "Interactable") and not CollectionService:HasTag(parent, "Placed") then
 			local distance = (hrp.Position - part.Position).Magnitude
 

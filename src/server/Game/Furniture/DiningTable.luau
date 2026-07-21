@@ -12,21 +12,21 @@ local world = WorldWrapper:GetWorld()
 
 --
 -- Компонент
-export type DinningTableComponent = jecs.Id<nil>
-local DinningTableComponent = world:component() :: DinningTableComponent
+export type DiningTableComponent = jecs.Id<nil>
+local DiningTableComponent = world:component() :: DiningTableComponent
 
 --
 -- Объявление сущности
 local PlaceHolder = require(ServerScriptService.Server.Components.PlaceHolder)
 
-function CreateDinningTable(): (jecs.Entity<nil>, Instance)
-	local instance: Instance = ServerStorage.Furniture.DinningTable:Clone()
+function CreateDiningTable(): (jecs.Entity<nil>, Instance)
+	local instance: Instance = ServerStorage.Furniture.DiningTable:Clone()
 	local top = instance:WaitForChild("top_part")
 
 	local placeHolderEntity, _ = PlaceHolder.Create(top)
 
-	local entity = WorldWrapper:RegisterInstance(instance, "DinningTable")
-	world:set(entity, DinningTableComponent)
+	local entity = WorldWrapper:RegisterInstance(instance, "DiningTable")
+	world:set(entity, DiningTableComponent)
 
 	return entity, instance, placeHolderEntity
 end
@@ -34,6 +34,6 @@ end
 --
 -- Модуль
 return {
-	Create = CreateDinningTable,
-	Component = DinningTableComponent,
+	Create = CreateDiningTable,
+	Component = DiningTableComponent,
 }

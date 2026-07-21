@@ -10,7 +10,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Types)
 local ObjectPool = require(ServerScriptService.Server.ObjectPool)
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
-local IngridientFactory = require(ServerScriptService.Server.Game.Ingridient.IngridientFactory)
+local IngredientFactory = require(ServerScriptService.Server.Game.Ingredient.IngredientFactory)
 
 local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
@@ -20,7 +20,7 @@ local world = WorldWrapper:GetWorld()
 export type DishForm = {
 	DishName: string,
 	Template: Tool,
-	CombineIngridients: (jecs.Entity<nil>, jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance),
+	CombineIngredients: (jecs.Entity<nil>, jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance),
 	CombineDish: (jecs.Entity<nil>, jecs.Entity<nil>) -> (), -- объединяет игридиенты в блюдо
 }
 
@@ -31,7 +31,7 @@ local DishSystem = Class.defineClass("DishSystem", AbstractSystem)
 function DishSystem.new(
 	DishPool, -- пул объектов
 	DishComponent, -- система для компонента
-	CombineIngridients: (self: DishSystem, jecs.Entity<nil>, jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance),
+	CombineIngredients: (self: DishSystem, jecs.Entity<nil>, jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance),
 	CombineDish: (self: DishSystem, jecs.Entity<nil>, jecs.Entity<nil>) -> () -- объединяет игридиенты в блюдо
 ): AbstractSystem.AbstractSystem
 	local parent = AbstractSystem.new()
@@ -39,25 +39,25 @@ function DishSystem.new(
 
 	self.DishPool = DishPool
 	self.DishComponent = DishComponent
-	self._combineIngridients = CombineIngridients
+	self._combineIngredients = CombineIngredients
 	self._combineDish = CombineDish
 
 	return self
 end
 
 function DishSystem:Process(_: number)
-	-- Обрабатываем объединение ингридиентов
+	-- Обрабатываем объединение ингредиентов
 	self:query(WorldWrapper:GetPlayerInteractComponent())
-		:with(IngridientFactory:GetAbstractIngridientComponent())
-		:forEach(function(ingridientEntity, intent)
-			if not ingridientEntity then
+		:with(IngredientFactory:GetAbstractIngredientComponent())
+		:forEach(function(ingredientEntity, intent)
+			if not ingredientEntity then
 				return
 			end
 			local keyCode: Enum.KeyCode = intent.KeyCode
 			local playerView: Types.PlayerView = intent.PlayerView
-			local processed = self:combineIngridients(ingridientEntity, playerView, keyCode)
+			local processed = self:combineIngredients(ingredientEntity, playerView, keyCode)
 			if processed then
-				world:remove(ingridientEntity, WorldWrapper:GetPlayerInteractComponent())
+				world:remove(ingredientEntity, WorldWrapper:GetPlayerInteractComponent())
 			end
 		end)
 
@@ -87,22 +87,22 @@ function DishSystem:Process(_: number)
 		end)
 end
 
-function DishSystem:combineIngridients(target: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
+function DishSystem:combineIngredients(target: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
 	if keyCode ~= Enum.KeyCode.E then
 		return false
 	end
 
 	local equipped = playerView:GetEquippedTool()
-	if not equipped or not world:has(equipped, IngridientFactory:GetAbstractIngridientComponent()) then
+	if not equipped or not world:has(equipped, IngredientFactory:GetAbstractIngredientComponent()) then
 		-- Если в руках ничего нет или держим не ингредиент, то выходим
 		return false
 	end
 
-	if not self._combineIngridients then
+	if not self._combineIngredients then
 		return false
 	end
 
-	local nextEntity, nextInstance = self:_combineIngridients(target, equipped)
+	local nextEntity, nextInstance = self:_combineIngredients(target, equipped)
 	if not nextEntity then
 		return false
 	end
@@ -119,7 +119,7 @@ function DishSystem:combineDish(target: jecs.Entity<nil>, playerView: Types.Play
 	end
 
 	local equipped = playerView:GetEquippedTool()
-	if not equipped or not world:has(equipped, IngridientFactory:GetAbstractIngridientComponent()) then
+	if not equipped or not world:has(equipped, IngredientFactory:GetAbstractIngredientComponent()) then
 		-- Если в руках ничего нет или держим не ингредиент, то выходим
 		return false
 	end
@@ -168,7 +168,7 @@ function DishFactory:DefineDish(DishForm: DishForm)
 		return entity, instance
 	end, 5)
 
-	module.System = DishSystem.new(module.Pool, DishComponent, DishForm.CombineIngridients, DishForm.CombineDish)
+	module.System = DishSystem.new(module.Pool, DishComponent, DishForm.CombineIngredients, DishForm.CombineDish)
 
 	return module
 end

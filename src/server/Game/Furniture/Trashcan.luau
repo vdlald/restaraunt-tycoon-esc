@@ -60,7 +60,7 @@ function System:Process(_: number)
 end
 
 local DishFactory = require(ServerScriptService.Server.Game.Dish.DishFactory)
-local IngridientFactory = require(ServerScriptService.Server.Game.Ingridient.IngridientFactory)
+local IngredientFactory = require(ServerScriptService.Server.Game.Ingredient.IngredientFactory)
 
 function System:processPlayerInteract(_: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
 	if keyCode ~= Enum.KeyCode.E then
@@ -73,7 +73,7 @@ function System:processPlayerInteract(_: jecs.Entity<nil>, playerView: Types.Pla
 	end
 
 	if
-		not world:has(equippedTool, IngridientFactory:GetAbstractIngridientComponent())
+		not world:has(equippedTool, IngredientFactory:GetAbstractIngredientComponent())
 		and not world:has(equippedTool, DishFactory:GetAbstractDishComponent())
 	then
 		return

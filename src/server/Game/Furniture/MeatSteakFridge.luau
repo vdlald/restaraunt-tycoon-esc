@@ -4,14 +4,14 @@
 local ServerStorage = game:GetService("ServerStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
-local MeatSteak = require(ServerScriptService.Server.Game.Ingridient.RawMeatSteak)
-local IngridientFurnitureFactory = require(ServerScriptService.Server.Game.Furniture.IngridientFurnitureFactory)
+local MeatSteak = require(ServerScriptService.Server.Game.Ingredient.RawMeatSteak)
+local IngredientFurnitureFactory = require(ServerScriptService.Server.Game.Furniture.IngredientFurnitureFactory)
 
-local Furniture = IngridientFurnitureFactory:DefineFurniture({
+local Furniture = IngredientFurnitureFactory:DefineFurniture({
 	FurnitureName = "MeatSteakFridge",
 	Template = ServerStorage.Furniture.MeatSteakFridge,
-	IngridientPool = MeatSteak.Pool,
-	IngridientComponent = MeatSteak.Component,
+	IngredientPool = MeatSteak.Pool,
+	IngredientComponent = MeatSteak.Component,
 })
 
 return Furniture

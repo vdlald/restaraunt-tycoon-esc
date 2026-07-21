@@ -78,4 +78,4 @@ function ObjectPool:IsPooled(entityId: jecs.Entity<nil>): boolean
 	return world:has(entityId, PoolComponent)
 end
 
-return ObjectPool::ObjectPool
+return ObjectPool :: ObjectPool

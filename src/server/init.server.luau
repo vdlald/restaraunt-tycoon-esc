@@ -47,7 +47,7 @@ Net.playerInteract.listen(function(data: table, player: Player)
 	end
 
 	if not world:contains(entityId) then
-		warn("suspicious player interaction, unfound entityId="..entityId)
+		warn("suspicious player interaction, unfound entityId=" .. entityId)
 		return
 	end
 
@@ -100,13 +100,13 @@ local PlayerInteractSystem = require(ServerScriptService.Server.Systems.PlayerIn
 
 local GuestNpc = require(ServerScriptService.Server.Game.Npc.Guest)
 
-local Flour = require(ServerScriptService.Server.Game.Ingridient.Flour)
-local Dough = require(ServerScriptService.Server.Game.Ingridient.Dough)
-local RawPie = require(ServerScriptService.Server.Game.Ingridient.RawPie)
+local Flour = require(ServerScriptService.Server.Game.Ingredient.Flour)
+local Dough = require(ServerScriptService.Server.Game.Ingredient.Dough)
+local RawPie = require(ServerScriptService.Server.Game.Ingredient.RawPie)
 
-local RawMeatSteak = require(ServerScriptService.Server.Game.Ingridient.RawMeatSteak)
-local ChoppedMeat = require(ServerScriptService.Server.Game.Ingridient.ChoppedMeat)
-local MinceMeat = require(ServerScriptService.Server.Game.Ingridient.MinceMeat)
+local RawMeatSteak = require(ServerScriptService.Server.Game.Ingredient.RawMeatSteak)
+local ChoppedMeat = require(ServerScriptService.Server.Game.Ingredient.ChoppedMeat)
+local MinceMeat = require(ServerScriptService.Server.Game.Ingredient.MinceMeat)
 
 local Pie = require(ServerScriptService.Server.Game.Dish.Pie)
 

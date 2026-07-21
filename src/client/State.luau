@@ -9,10 +9,10 @@ local State = {
 }
 
 Net.playerDataUpdate.listen(function(data)
-    -- Данные
+	-- Данные
 	local coins: number = data.coins
 
-    -- Обновление состояния
+	-- Обновление состояния
 	State.Coins:set(coins)
 end)
 
