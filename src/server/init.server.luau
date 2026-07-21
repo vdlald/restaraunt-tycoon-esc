@@ -1,5 +1,6 @@
 -- Зависимости
 local ServerScriptService = game:GetService("ServerScriptService")
+require(ServerScriptService.Server.Player.DataManager) -- грузим первым DataManager
 local Types = require(ServerScriptService.Server.Types)
 local ObjectPool = require(ServerScriptService.Server.ObjectPool)
 

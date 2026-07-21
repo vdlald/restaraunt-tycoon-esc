@@ -125,7 +125,10 @@ end
 function WorldWrapper:RegisterPlayer(connectedPlayer: Player): jecs.Entity<nil>
 	local entity = world:entity()
 	connectedPlayer:SetAttribute(Consts.Attributes.PlayerId, entity)
-	world:set(entity, playerComponent, { Player = connectedPlayer, PlayerView = PlayerView.new(connectedPlayer) })
+	world:set(entity, playerComponent, {
+		Player = connectedPlayer,
+		PlayerView = PlayerView.new(connectedPlayer),
+	})
 	return entity
 end
 
