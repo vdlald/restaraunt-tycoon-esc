@@ -2,7 +2,7 @@
 
 -- Зависимости
 local StarterPlayer = game:GetService("StarterPlayer")
-local UI = require(StarterPlayer.StarterPlayerScripts.Client.UI)
+local UI = require(StarterPlayer.StarterPlayerScripts.Client.ui.UI)
 local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
 
 local RunService = game:GetService("RunService")
