@@ -28,7 +28,7 @@ function CreateDiningTable(): (jecs.Entity<nil>, Instance)
 	instance:AddTag(Consts.Tags.Furniture)
 
 	local top = instance:WaitForChild("top_part")
-	local placeHolderEntity, _ = PlaceHolder.Create(top, entity)
+	local placeHolderEntity, _ = PlaceHolder.Create(top)
 
 	return entity, instance, placeHolderEntity
 end

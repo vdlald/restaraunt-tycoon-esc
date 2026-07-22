@@ -7,13 +7,13 @@ local Consts = {
 	Attributes = {
 		EntityId = "entityId",
 		PlayerId = "playerId",
-		OwnerFurnitureEntityId = "ownerFurnitureEntityId",
 	},
 	Tags = {
 		Holds = "Holds",
 		Placed = "Placed",
 		PlaceHolder = "PlaceHolder",
 		Interactable = "Interactable",
+		InteractableDisabled = "InteractableDisabled",
 		Furniture = "Furniture",
 		BuildZone = "BuildZone",
 	},

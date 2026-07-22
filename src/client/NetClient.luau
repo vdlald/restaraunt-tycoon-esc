@@ -18,9 +18,10 @@ function NetClient:BuildModeSetActive(active: boolean)
 	})
 end
 
-function NetClient:BuildModePlace(cframe: CFrame)
+function NetClient:BuildModePlace(aimPoint: Vector3, yaw: number)
 	Net.buildModePlace.send({
-		cframe = cframe,
+		aimPoint = aimPoint,
+		yaw = yaw,
 	})
 end
 

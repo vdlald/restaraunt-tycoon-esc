@@ -29,7 +29,8 @@ local Net = ByteNet.defineNamespace("Game", function()
 
 		buildModePlace = ByteNet.definePacket({
 			value = ByteNet.struct({
-				cframe = ByteNet.cframe,
+				aimPoint = ByteNet.vec3,
+				yaw = ByteNet.float32,
 			}),
 		}),
 

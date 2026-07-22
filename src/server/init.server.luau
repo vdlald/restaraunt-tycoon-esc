@@ -119,7 +119,23 @@ Net.playerInteract.listen(function(data: table, player: Player)
 	world:set(playerId, WorldWrapper:GetWantsToInteractComponent(), { Target = entityId, KeyCode = keyCode })
 end)
 
+local lastBuildModeAction: { [Player]: number } = {}
+
+local function throttleBuildModeAction(player: Player, cooldown: number): boolean
+	local now = tick()
+	local last = lastBuildModeAction[player]
+	if last and now - last < cooldown then
+		return false
+	end
+	lastBuildModeAction[player] = now
+	return true
+end
+
 Net.buildModeSetActive.listen(function(data: table, player: Player)
+	if not throttleBuildModeAction(player, 0.2) then
+		return
+	end
+
 	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
 	if not playerId then
 		return
@@ -134,6 +150,10 @@ Net.buildModeSetActive.listen(function(data: table, player: Player)
 end)
 
 Net.buildModePlace.listen(function(data: table, player: Player)
+	if not throttleBuildModeAction(player, 0.2) then
+		return
+	end
+
 	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
 	if not playerId then
 		return
@@ -144,7 +164,7 @@ Net.buildModePlace.listen(function(data: table, player: Player)
 		return
 	end
 
-	BuildModeSystem:Place(playerView, data.cframe)
+	BuildModeSystem:Place(playerView, data.aimPoint, data.yaw)
 end)
 
 -- Синхронизируем изменения данных пользователя

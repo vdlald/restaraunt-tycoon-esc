@@ -73,13 +73,9 @@ end)
 
 --
 -- Объявление сущности
-function CreatePlaceHolder(instance: Instance, ownerFurnitureEntity: jecs.Entity<nil>?): (jecs.Entity<nil>, Instance)
+function CreatePlaceHolder(instance: Instance): (jecs.Entity<nil>, Instance)
 	instance:AddTag(Consts.Tags.Interactable)
 	instance:AddTag(Consts.Tags.PlaceHolder)
-
-	if ownerFurnitureEntity then
-		instance:SetAttribute(Consts.Attributes.OwnerFurnitureEntityId, ownerFurnitureEntity)
-	end
 
 	local entity = WorldWrapper:RegisterInstance(instance, "PlaceHolder")
 	world:set(entity, placeHolderComponent)
@@ -88,7 +84,7 @@ function CreatePlaceHolder(instance: Instance, ownerFurnitureEntity: jecs.Entity
 	return entity, instance
 end
 
-local function isCarriedByOwner(placeHolderEntity: jecs.Entity<nil>?): boolean
+local function isOwnerCarried(placeHolderEntity: jecs.Entity<nil>?): boolean
 	if not placeHolderEntity then
 		return false
 	end
@@ -98,12 +94,12 @@ local function isCarriedByOwner(placeHolderEntity: jecs.Entity<nil>?): boolean
 		return false
 	end
 
-	local ownerEntityId: number? = instance:GetAttribute(Consts.Attributes.OwnerFurnitureEntityId)
-	if not ownerEntityId or not world:contains(ownerEntityId) then
+	local ownerModel = instance:FindFirstAncestorOfClass("Model")
+	if not ownerModel then
 		return false
 	end
 
-	return world:has(ownerEntityId, WorldWrapper:GetBuildModeCarriedComponent())
+	return ownerModel:HasTag(Consts.Tags.InteractableDisabled)
 end
 
 --
@@ -131,7 +127,7 @@ function System:Process(_: number)
 			-- Считаем задачу выполненной
 			world:remove(placeHolderEntity, WorldWrapper:GetPlayerInteractComponent())
 
-			if isCarriedByOwner(placeHolderEntity) then
+			if isOwnerCarried(placeHolderEntity) then
 				return placeHolderEntity
 			end
 
@@ -164,7 +160,7 @@ function System:Process(_: number)
 			-- Считаем задачу выполненной
 			world:remove(placedEntity, WorldWrapper:GetPlayerInteractComponent())
 
-			if isCarriedByOwner(placedComponent.PlaceHolderEntity) then
+			if isOwnerCarried(placedComponent.PlaceHolderEntity) then
 				return placedEntity
 			end
 

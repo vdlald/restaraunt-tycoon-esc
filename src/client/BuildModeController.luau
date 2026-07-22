@@ -7,10 +7,12 @@ local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Consts = require(ReplicatedStorage.Shared.Consts)
+local PlacementQuery = require(ReplicatedStorage.Shared.Placement.PlacementQuery)
 
 local StarterPlayer = game:GetService("StarterPlayer")
 local State = require(StarterPlayer.StarterPlayerScripts.Client.State)
 local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
+local EntityRegistry = require(StarterPlayer.StarterPlayerScripts.Client.EntityRegistry)
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
@@ -21,15 +23,6 @@ local ghostModel: Model? = nil
 local ghostRotation: number = 0
 local targetHighlight: Highlight? = nil
 local currentTargetEntityId: number? = nil
-
-local function findInstanceByEntityId(entityId: number): Instance?
-	for _, instance: Instance in ipairs(workspace:GetDescendants()) do
-		if instance:GetAttribute(Consts.Attributes.EntityId) == entityId then
-			return instance
-		end
-	end
-	return nil
-end
 
 local function getCharacter(): Model?
 	return player.Character
@@ -50,17 +43,19 @@ local function raycastFromCamera(
 	return workspace:Raycast(origin, direction, params)
 end
 
-local function findFloorUnder(aimPoint: Vector3): RaycastResult?
-	local zones = CollectionService:GetTagged(Consts.Tags.BuildZone)
-	if #zones == 0 then
-		return nil
+local function computeAimPoint(): Vector3
+	local character = getCharacter()
+	local ignoreList = { character }
+	if ghostModel then
+		table.insert(ignoreList, ghostModel)
 	end
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = zones
+	local result = raycastFromCamera(Consts.BuildModeMaxDistance, Enum.RaycastFilterType.Exclude, ignoreList)
+	if result then
+		return result.Position
+	end
 
-	return workspace:Raycast(aimPoint + Vector3.new(0, 50, 0), Vector3.new(0, -100, 0), params)
+	return camera.CFrame.Position + camera.CFrame.LookVector * Consts.BuildModeMaxDistance
 end
 
 local function findFurnitureTarget(result: RaycastResult): (Instance?, number?)
@@ -82,11 +77,6 @@ local function findFurnitureTarget(result: RaycastResult): (Instance?, number?)
 	return model, entityId
 end
 
-local function snapPosition(position: Vector3): Vector3
-	local grid = Consts.BuildModeGridSize
-	return Vector3.new(math.round(position.X / grid) * grid, position.Y, math.round(position.Z / grid) * grid)
-end
-
 local function setGhostTransparency(transparency: number)
 	if not ghostModel then
 		return
@@ -104,37 +94,17 @@ local function updateGhostPosition()
 		return
 	end
 
-	local character = getCharacter()
-	if not character then
-		return
-	end
+	local aimPoint = computeAimPoint()
+	local modelHeight = ghostModel:GetExtentsSize().Y
+	local placementCFrame = PlacementQuery.ComputePlacementCFrame(aimPoint, ghostRotation, modelHeight)
 
-	local ignoreList = { character }
-	if ghostModel then
-		table.insert(ignoreList, ghostModel)
-	end
-
-	local aimResult = raycastFromCamera(Consts.BuildModeMaxDistance, Enum.RaycastFilterType.Exclude, ignoreList)
-	local aimPoint: Vector3
-	if aimResult then
-		aimPoint = aimResult.Position
-	else
-		aimPoint = camera.CFrame.Position + camera.CFrame.LookVector * Consts.BuildModeMaxDistance
-	end
-
-	local floorResult = findFloorUnder(aimPoint)
-	if not floorResult then
+	if not placementCFrame then
 		setGhostTransparency(1)
 		return
 	end
 
 	setGhostTransparency(0.6)
-
-	local halfHeight = ghostModel:GetExtentsSize().Y
-	local snapped = snapPosition(Vector3.new(aimPoint.X, floorResult.Position.Y + halfHeight, aimPoint.Z))
-	local cframe = CFrame.new(snapped) * CFrame.Angles(0, ghostRotation, 0)
-
-	ghostModel:SetPrimaryPartCFrame(cframe)
+	ghostModel:SetPrimaryPartCFrame(placementCFrame)
 end
 
 local function destroyGhost()
@@ -148,7 +118,7 @@ end
 local function createGhost(entityId: number)
 	destroyGhost()
 
-	local instance = findInstanceByEntityId(entityId)
+	local instance = EntityRegistry.GetInstanceByEntityId(entityId)
 	if not instance or not instance:IsA("Model") then
 		return
 	end
@@ -266,7 +236,8 @@ function BuildModeController.Init()
 
 		local carriedEntityId = State.CarriedFurnitureEntity:get()
 		if carriedEntityId and ghostModel then
-			NetClient:BuildModePlace(ghostModel:GetPrimaryPartCFrame())
+			local aimPoint = computeAimPoint()
+			NetClient:BuildModePlace(aimPoint, ghostRotation)
 			return
 		end
 

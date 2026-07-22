@@ -5,6 +5,7 @@ local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Class = require(ReplicatedStorage.Shared.Class)
 local Consts = require(ReplicatedStorage.Shared.Consts)
 local Utils = require(ReplicatedStorage.Shared.Utils)
+local PlacementQuery = require(ReplicatedStorage.Shared.Placement.PlacementQuery)
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Types)
@@ -14,6 +15,7 @@ local world = WorldWrapper:GetWorld()
 
 local Net = require(ReplicatedStorage.Shared.Net)
 local BuildModeValidator = require(ServerScriptService.Server.Game.BuildMode.BuildModeValidator)
+local BuildModePhysics = require(ServerScriptService.Server.Game.BuildMode.BuildModePhysics)
 
 local HIDDEN_OFFSET = CFrame.new(0, -500, 0)
 
@@ -29,42 +31,12 @@ local function getOrCreateHiddenFolder(): Folder
 	return newFolder
 end
 
-local function capturePhysicsState(instance: Instance): { [BasePart]: { Anchored: boolean, CanCollide: boolean } }
-	local state = {}
-	for _, descendant: Instance in ipairs(instance:GetDescendants()) do
-		if descendant:IsA("BasePart") then
-			state[descendant] = {
-				Anchored = descendant.Anchored,
-				CanCollide = descendant.CanCollide,
-			}
-		end
-	end
-	return state
-end
-
-local function applyPhysicsState(physicsState: { [BasePart]: { Anchored: boolean, CanCollide: boolean } })
-	for part: BasePart, saved in pairs(physicsState) do
-		if part.Parent then
-			part.Anchored = saved.Anchored
-			part.CanCollide = saved.CanCollide
-		end
-	end
-end
-
-local function disablePhysics(instance: Instance)
-	for _, descendant: Instance in ipairs(instance:GetDescendants()) do
-		if descendant:IsA("BasePart") then
-			descendant.Anchored = true
-			descendant.CanCollide = false
-		end
-	end
-end
-
 local BuildModeSystem = Class.defineClass("BuildModeSystem", AbstractSystem)
 
 function BuildModeSystem.new()
 	local parent = AbstractSystem.new()
 	local self = setmetatable(parent, BuildModeSystem)
+	self._carriedFurnitureToPlayer = {} :: { [jecs.Entity<nil>]: jecs.Entity<nil> }
 	return self
 end
 
@@ -118,12 +90,7 @@ function BuildModeSystem:SetActive(playerView: Types.PlayerView, active: boolean
 end
 
 function BuildModeSystem:_isFurnitureCarried(furnitureEntity: jecs.Entity<nil>): boolean
-	for _, carriedData in world:query(WorldWrapper:GetBuildModeCarriedComponent()) do
-		if carriedData.FurnitureEntity == furnitureEntity then
-			return true
-		end
-	end
-	return false
+	return self._carriedFurnitureToPlayer[furnitureEntity] ~= nil
 end
 
 function BuildModeSystem:Pickup(playerView: Types.PlayerView, furnitureEntity: jecs.Entity<nil>)
@@ -169,9 +136,10 @@ function BuildModeSystem:Pickup(playerView: Types.PlayerView, furnitureEntity: j
 	end
 
 	local originalCFrame = instance:GetPrimaryPartCFrame()
-	local physicsState = capturePhysicsState(instance)
+	local physicsState = BuildModePhysics.Capture(instance)
 
-	disablePhysics(instance)
+	BuildModePhysics.Disable(instance)
+	instance:AddTag(Consts.Tags.InteractableDisabled)
 	instance.Parent = getOrCreateHiddenFolder()
 	instance:SetPrimaryPartCFrame(HIDDEN_OFFSET)
 
@@ -180,11 +148,12 @@ function BuildModeSystem:Pickup(playerView: Types.PlayerView, furnitureEntity: j
 		OriginalCFrame = originalCFrame,
 		PhysicsState = physicsState,
 	})
+	self._carriedFurnitureToPlayer[furnitureEntity] = playerId
 
 	self:_sendState(playerView)
 end
 
-function BuildModeSystem:Place(playerView: Types.PlayerView, targetCFrame: CFrame)
+function BuildModeSystem:Place(playerView: Types.PlayerView, aimPoint: Vector3, yaw: number)
 	local playerId = self:_getPlayerEntity(playerView)
 	if not playerId then
 		return
@@ -208,35 +177,27 @@ function BuildModeSystem:Place(playerView: Types.PlayerView, targetCFrame: CFram
 		return
 	end
 
-	if not BuildModeValidator.IsPlacementReachable(rootPart.Position, targetCFrame.Position) then
-		return
-	end
-
-	if not BuildModeValidator.IsInBuildZone(targetCFrame.Position) then
-		return
-	end
-
-	local floorResult = BuildModeValidator.FindFloorUnder(targetCFrame.Position)
-	if not floorResult then
+	if not BuildModeValidator.IsPlacementReachable(rootPart.Position, aimPoint) then
 		return
 	end
 
 	local size = instance:GetExtentsSize()
-	local _, yaw, _ = targetCFrame:ToEulerAnglesXYZ()
-	local snappedPosition = BuildModeValidator.SnapPosition(
-		Vector3.new(targetCFrame.Position.X, floorResult.Position.Y + size.Y, targetCFrame.Position.Z)
-	)
-	local correctedCFrame = CFrame.new(snappedPosition) * CFrame.Angles(0, yaw, 0)
+	local correctedCFrame = PlacementQuery.ComputePlacementCFrame(aimPoint, yaw, size.Y)
+	if not correctedCFrame then
+		return
+	end
 
 	if not BuildModeValidator.IsAreaClear(correctedCFrame, size, { instance, playerView:GetCharacter() }) then
 		return
 	end
 
-	applyPhysicsState(carriedData.PhysicsState)
+	BuildModePhysics.Apply(carriedData.PhysicsState)
+	instance:RemoveTag(Consts.Tags.InteractableDisabled)
 	instance.Parent = workspace
 	instance:SetPrimaryPartCFrame(correctedCFrame)
 
 	world:remove(playerId, WorldWrapper:GetBuildModeCarriedComponent())
+	self._carriedFurnitureToPlayer[furnitureEntity] = nil
 	self:_sendState(playerView)
 end
 
@@ -253,11 +214,13 @@ function BuildModeSystem:CancelCarry(playerView: Types.PlayerView)
 
 	local instance = WorldWrapper:FindInstance(carriedData.FurnitureEntity)
 	if instance and instance:IsA("Model") then
-		applyPhysicsState(carriedData.PhysicsState)
+		BuildModePhysics.Apply(carriedData.PhysicsState)
+		instance:RemoveTag(Consts.Tags.InteractableDisabled)
 		instance.Parent = workspace
 		instance:SetPrimaryPartCFrame(carriedData.OriginalCFrame)
 	end
 
+	self._carriedFurnitureToPlayer[carriedData.FurnitureEntity] = nil
 	world:remove(playerId, WorldWrapper:GetBuildModeCarriedComponent())
 	self:_sendState(playerView)
 end
