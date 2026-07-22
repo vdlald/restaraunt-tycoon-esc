@@ -73,15 +73,37 @@ end)
 
 --
 -- Объявление сущности
-function CreatePlaceHolder(instance: Instance): (jecs.Entity<nil>, Instance)
+function CreatePlaceHolder(instance: Instance, ownerFurnitureEntity: jecs.Entity<nil>?): (jecs.Entity<nil>, Instance)
 	instance:AddTag(Consts.Tags.Interactable)
 	instance:AddTag(Consts.Tags.PlaceHolder)
+
+	if ownerFurnitureEntity then
+		instance:SetAttribute(Consts.Attributes.OwnerFurnitureEntityId, ownerFurnitureEntity)
+	end
 
 	local entity = WorldWrapper:RegisterInstance(instance, "PlaceHolder")
 	world:set(entity, placeHolderComponent)
 	world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
 
 	return entity, instance
+end
+
+local function isCarriedByOwner(placeHolderEntity: jecs.Entity<nil>?): boolean
+	if not placeHolderEntity then
+		return false
+	end
+
+	local instance = WorldWrapper:FindInstance(placeHolderEntity)
+	if not instance then
+		return false
+	end
+
+	local ownerEntityId: number? = instance:GetAttribute(Consts.Attributes.OwnerFurnitureEntityId)
+	if not ownerEntityId or not world:contains(ownerEntityId) then
+		return false
+	end
+
+	return world:has(ownerEntityId, WorldWrapper:GetBuildModeCarriedComponent())
 end
 
 --
@@ -108,6 +130,10 @@ function System:Process(_: number)
 
 			-- Считаем задачу выполненной
 			world:remove(placeHolderEntity, WorldWrapper:GetPlayerInteractComponent())
+
+			if isCarriedByOwner(placeHolderEntity) then
+				return placeHolderEntity
+			end
 
 			-- Начало обработки
 			local keyCode: Enum.KeyCode = intent.KeyCode
@@ -137,6 +163,10 @@ function System:Process(_: number)
 
 			-- Считаем задачу выполненной
 			world:remove(placedEntity, WorldWrapper:GetPlayerInteractComponent())
+
+			if isCarriedByOwner(placedComponent.PlaceHolderEntity) then
+				return placedEntity
+			end
 
 			-- Начало обработки
 			local placeHolderEntity = placedComponent.PlaceHolderEntity

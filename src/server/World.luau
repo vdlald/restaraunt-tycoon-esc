@@ -44,6 +44,18 @@ local replaceTargetComponent = world:component() :: ReplaceTargetComponent
 export type ReleaseTargetComponent = jecs.Id<nil>
 local releaseTargetComponent = world:component() :: ReleaseTargetComponent
 
+-- BuildMode - игрок находится в режиме строительства
+export type BuildModeActiveComponent = jecs.Id<nil>
+local buildModeActiveComponent = world:component() :: BuildModeActiveComponent
+
+-- BuildModeCarried - игрок несет фурнитуру
+export type BuildModeCarriedComponent = jecs.Id<{
+	FurnitureEntity: jecs.Entity<nil>,
+	OriginalCFrame: CFrame,
+	PhysicsState: { [BasePart]: { Anchored: boolean, CanCollide: boolean } },
+}>
+local buildModeCarriedComponent = world:component() :: BuildModeCarriedComponent
+
 --
 -- Объявление WorldWrapper
 --
@@ -62,6 +74,9 @@ export type WorldWrapper = {
 	GetReplaceTargetComponent: (self: WorldWrapper) -> ReplaceTargetComponent,
 
 	GetReleaseTargetComponent: (self: WorldWrapper) -> ReleaseTargetComponent,
+
+	GetBuildModeActiveComponent: (self: WorldWrapper) -> BuildModeActiveComponent,
+	GetBuildModeCarriedComponent: (self: WorldWrapper) -> BuildModeCarriedComponent,
 
 	-- lookup
 	FindPlayer: (self: WorldWrapper, playerId: jecs.Entity<nil>) -> Types.PlayerView?,
@@ -106,6 +121,14 @@ end
 
 function WorldWrapper:GetReleaseTargetComponent(): ReleaseTargetComponent
 	return releaseTargetComponent
+end
+
+function WorldWrapper:GetBuildModeActiveComponent(): BuildModeActiveComponent
+	return buildModeActiveComponent
+end
+
+function WorldWrapper:GetBuildModeCarriedComponent(): BuildModeCarriedComponent
+	return buildModeCarriedComponent
 end
 
 function WorldWrapper:FindPlayer(playerId: jecs.Entity<nil>): Types.PlayerView?

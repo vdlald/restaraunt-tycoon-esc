@@ -9,6 +9,8 @@ local ObjectPool = require(ServerScriptService.Server.ObjectPool)
 local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
 
+local BuildModeSystem = require(ServerScriptService.Server.Game.BuildMode.BuildModeSystem)
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Consts = require(ReplicatedStorage.Shared.Consts)
 
@@ -17,6 +19,35 @@ local Consts = require(ReplicatedStorage.Shared.Consts)
 local Players = game:GetService("Players")
 Players.PlayerAdded:Connect(function(player)
 	WorldWrapper:RegisterPlayer(player)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
+	if not playerId then
+		return
+	end
+
+	local playerView = WorldWrapper:FindPlayer(playerId)
+	if playerView then
+		BuildModeSystem:CancelCarry(playerView)
+		if world:has(playerId, WorldWrapper:GetBuildModeActiveComponent()) then
+			world:remove(playerId, WorldWrapper:GetBuildModeActiveComponent())
+		end
+	end
+end)
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterRemoving:Connect(function()
+		local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
+		if not playerId then
+			return
+		end
+
+		local playerView = WorldWrapper:FindPlayer(playerId)
+		if playerView then
+			BuildModeSystem:CancelCarry(playerView)
+		end
+	end)
 end)
 
 --
@@ -43,6 +74,12 @@ Net.playerInteract.listen(function(data: table, player: Player)
 	local playerView: Types.PlayerView? = WorldWrapper:FindPlayer(playerId)
 	if not playerView then
 		error("unknown userId=" .. player.UserId)
+		return
+	end
+
+	-- Build mode перехватывает E для перемещения фурнитуры
+	if world:has(playerId, WorldWrapper:GetBuildModeActiveComponent()) and keyCode == Enum.KeyCode.E then
+		BuildModeSystem:Pickup(playerView, entityId)
 		return
 	end
 
@@ -80,6 +117,34 @@ Net.playerInteract.listen(function(data: table, player: Player)
 
 	-- game specific validations
 	world:set(playerId, WorldWrapper:GetWantsToInteractComponent(), { Target = entityId, KeyCode = keyCode })
+end)
+
+Net.buildModeSetActive.listen(function(data: table, player: Player)
+	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
+	if not playerId then
+		return
+	end
+
+	local playerView = WorldWrapper:FindPlayer(playerId)
+	if not playerView then
+		return
+	end
+
+	BuildModeSystem:SetActive(playerView, data.active)
+end)
+
+Net.buildModePlace.listen(function(data: table, player: Player)
+	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
+	if not playerId then
+		return
+	end
+
+	local playerView = WorldWrapper:FindPlayer(playerId)
+	if not playerView then
+		return
+	end
+
+	BuildModeSystem:Place(playerView, data.cframe)
 end)
 
 -- Синхронизируем изменения данных пользователя
@@ -120,6 +185,7 @@ local Trashcan = require(ServerScriptService.Server.Game.Furniture.Trashcan)
 RunService.Heartbeat:Connect(function(deltaTime)
 	-- start phase
 	PlayerInteractSystem:Process(deltaTime)
+	BuildModeSystem:Process(deltaTime)
 
 	-- NPC
 	GuestNpc.System:Process(deltaTime)

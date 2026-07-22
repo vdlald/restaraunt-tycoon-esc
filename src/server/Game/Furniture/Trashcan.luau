@@ -6,6 +6,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Class = require(ReplicatedStorage.Shared.Class)
+local Consts = require(ReplicatedStorage.Shared.Consts)
 local Utils = require(ReplicatedStorage.Shared.Utils)
 
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -24,7 +25,8 @@ local TrashcanComponent = world:component() :: TrashcanComponent
 -- Объявление сущности
 function CreateTrashcan(): (jecs.Entity<nil>, Instance)
 	local instance: Instance = ServerStorage.Furniture.Trashcan:Clone()
-	instance:AddTag("Interactable")
+	instance:AddTag(Consts.Tags.Interactable)
+	instance:AddTag(Consts.Tags.Furniture)
 
 	local entity = WorldWrapper:RegisterInstance(instance, "Trashcan")
 	world:set(entity, TrashcanComponent)

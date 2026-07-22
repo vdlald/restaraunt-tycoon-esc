@@ -19,6 +19,26 @@ local Net = ByteNet.defineNamespace("Game", function()
 				coins = ByteNet.int32,
 			}),
 		}),
+
+		-- Режим строительства
+		buildModeSetActive = ByteNet.definePacket({
+			value = ByteNet.struct({
+				active = ByteNet.bool,
+			}),
+		}),
+
+		buildModePlace = ByteNet.definePacket({
+			value = ByteNet.struct({
+				cframe = ByteNet.cframe,
+			}),
+		}),
+
+		buildModeState = ByteNet.definePacket({
+			value = ByteNet.struct({
+				active = ByteNet.bool,
+				carriedEntityId = ByteNet.optional(ByteNet.int32),
+			}),
+		}),
 	}
 end)
 

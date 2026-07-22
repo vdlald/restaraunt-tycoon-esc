@@ -12,4 +12,16 @@ function NetClient:PlayerInteract(entityId: number, keyCode: Enum.KeyCode)
 	})
 end
 
+function NetClient:BuildModeSetActive(active: boolean)
+	Net.buildModeSetActive.send({
+		active = active,
+	})
+end
+
+function NetClient:BuildModePlace(cframe: CFrame)
+	Net.buildModePlace.send({
+		cframe = cframe,
+	})
+end
+
 return NetClient

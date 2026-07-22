@@ -2,8 +2,9 @@
 
 -- Зависимости
 local StarterPlayer = game:GetService("StarterPlayer")
-local UI = require(StarterPlayer.StarterPlayerScripts.Client.ui.UI)
+require(StarterPlayer.StarterPlayerScripts.Client.ui.UI)
 local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
+local BuildModeController = require(StarterPlayer.StarterPlayerScripts.Client.BuildModeController)
 
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -12,6 +13,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Val = require(ReplicatedStorage.Packages.Val)
 local Consts = require(ReplicatedStorage.Shared.Consts)
 local PlayerUtils = require(ReplicatedStorage.Shared.PlayerUtils)
+local State = require(StarterPlayer.StarterPlayerScripts.Client.State)
+
+BuildModeController.Init()
 
 --
 -- Общие переменные
@@ -55,6 +59,10 @@ end
 -- Взаимодействие с миром
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
+		return
+	end
+
+	if State.BuildModeActive:get() then
 		return
 	end
 
@@ -110,6 +118,10 @@ end
 
 local timePassed = 0
 RunService.Heartbeat:Connect(function(dt)
+	if State.BuildModeActive:get() then
+		return
+	end
+
 	if isFirstPerson() then
 		return
 	end
@@ -126,6 +138,11 @@ RunService.Heartbeat:Connect(function(dt)
 end)
 
 RunService.RenderStepped:Connect(function(_)
+	if State.BuildModeActive:get() then
+		closestPart:set(nil)
+		return
+	end
+
 	if not isFirstPerson() then
 		return
 	end
