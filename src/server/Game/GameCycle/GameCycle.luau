@@ -55,6 +55,7 @@ GameCycle.day = 1
 GameCycle.countdownSeconds = 0
 GameCycle.serviceSecondsRemaining = 0
 GameCycle.guestsRemaining = 0
+GameCycle.guestsLeaving = 0
 GameCycle.countdownTarget = nil :: GamePhase?
 GameCycle.resultSecondsRemaining = 0
 GameCycle.sceneInstances = {} :: { Instance }
@@ -148,6 +149,7 @@ end
 
 function GameCycle:ClearScene()
 	self:DisableBuildingForPlayers()
+	Guest.CancelAll()
 	for _, player in Players:GetPlayers() do
 		local character = player.Character
 		if character then
@@ -180,6 +182,7 @@ function GameCycle:ClearScene()
 	table.clear(self.sceneInstances)
 	self.hasStarterScene = false
 	self.guestsRemaining = 0
+	self.guestsLeaving = 0
 end
 
 function GameCycle:CreateStarterScene()
@@ -223,6 +226,7 @@ end
 function GameCycle:SpawnGuests()
 	local guestCount, serviceSeconds = self:GetDayProgression(self.day)
 	self.guestsRemaining = guestCount
+	self.guestsLeaving = 0
 	self.serviceSecondsRemaining = serviceSeconds
 
 	for _ = 1, guestCount do
@@ -304,7 +308,7 @@ function GameCycle:RequestPhaseToggle(_: Player)
 	self:BroadcastState()
 end
 
-function GameCycle:OnGuestFed(_: Player, guestEntity: number, dishEntity: number): number?
+function GameCycle:OnGuestFed(_: Player, _: number, dishEntity: number): number?
 	if not self:CanFeedGuests() or self.guestsRemaining <= 0 then
 		return nil
 	end
@@ -333,12 +337,18 @@ function GameCycle:OnGuestFed(_: Player, guestEntity: number, dishEntity: number
 	end
 	self.currentReceipt.total += earned
 
-	local guest = WorldWrapper:FindInstance(guestEntity)
-	if guest then
-		guest.Parent = nil
-	end
 	self.guestsRemaining -= 1
-	if self.guestsRemaining == 0 then
+	self.guestsLeaving += 1
+	self:BroadcastState()
+	return earned
+end
+
+function GameCycle:OnGuestExited(_: number)
+	if self.phase ~= self.Phase.Service or self.guestsLeaving <= 0 then
+		return
+	end
+	self.guestsLeaving -= 1
+	if self.guestsRemaining == 0 and self.guestsLeaving == 0 then
 		self:SendReceipt()
 		if self.day >= 20 then
 			self:EnterResult(self.Phase.Victory)
@@ -349,7 +359,6 @@ function GameCycle:OnGuestFed(_: Player, guestEntity: number, dishEntity: number
 	else
 		self:BroadcastState()
 	end
-	return earned
 end
 
 function GameCycle:Process(deltaTime: number)
@@ -365,10 +374,12 @@ function GameCycle:Process(deltaTime: number)
 			return
 		end
 	elseif self.phase == self.Phase.Service then
-		self.serviceSecondsRemaining -= deltaTime
-		if self.serviceSecondsRemaining <= 0 then
-			self:EnterResult(self.Phase.Defeat)
-			return
+		if self.guestsRemaining > 0 then
+			self.serviceSecondsRemaining -= deltaTime
+			if self.serviceSecondsRemaining <= 0 then
+				self:EnterResult(self.Phase.Defeat)
+				return
+			end
 		end
 	elseif self.phase == self.Phase.Victory or self.phase == self.Phase.Defeat then
 		self.resultSecondsRemaining -= deltaTime
@@ -390,6 +401,10 @@ end
 
 Guest.SetFedHandler(function(player, guestEntity, dishEntity)
 	return GameCycle:OnGuestFed(player, guestEntity, dishEntity)
+end)
+
+Guest.SetExitedHandler(function(guestEntity)
+	GameCycle:OnGuestExited(guestEntity)
 end)
 
 return GameCycle
