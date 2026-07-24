@@ -62,6 +62,9 @@ end
 
 function IngredientSystem:clearParticipants(target: jecs.Entity<nil>)
 	self:query(WorldWrapper:GetIngredientProcessingComponent()):forEach(function(playerEntity, processing)
+		if not playerEntity then
+			return
+		end
 		if processing.Target == target then
 			world:remove(playerEntity, WorldWrapper:GetIngredientProcessingComponent())
 		end
@@ -90,6 +93,9 @@ function IngredientSystem:getParticipantCount(target: jecs.Entity<nil>): number
 	local count = 0
 	self:query(WorldWrapper:GetPlayerComponent(), WorldWrapper:GetIngredientProcessingComponent())
 		:forEach(function(playerEntity, playerComponent, processing)
+			if not playerEntity then
+				return
+			end
 			if processing.Target ~= target then
 				return playerEntity
 			end
