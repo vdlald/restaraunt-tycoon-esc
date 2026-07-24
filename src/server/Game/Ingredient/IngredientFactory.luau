@@ -72,6 +72,15 @@ function IngredientSystem:clearParticipants(target: jecs.Entity<nil>)
 	end)
 end
 
+function IngredientSystem:clearProcessState(target: jecs.Entity<nil>)
+	self:clearParticipants(target)
+	local progress = world:get(target, WorldWrapper:GetIngredientProgressComponent())
+	if progress then
+		world:remove(target, WorldWrapper:GetIngredientProgressComponent())
+		self:sendProcessState(target, progress.Elapsed, 0, false)
+	end
+end
+
 function IngredientSystem:isValidParticipant(playerView: Types.PlayerView, target: jecs.Entity<nil>): boolean
 	local player = playerView:GetPlayer()
 	if player.Parent == nil then
@@ -123,17 +132,13 @@ function IngredientSystem:processIngredient(target: jecs.Entity<nil>, deltaTime:
 				Elapsed = progress.Elapsed,
 				ParticipantCount = 0,
 			})
-			self:sendProcessState(target, progress.Elapsed, 0, false)
+			self:sendProcessState(target, progress.Elapsed, 0, true)
 		end
 		return
 	end
 
 	local elapsed = (if progress then progress.Elapsed else 0) + deltaTime * participantCount
 	if elapsed >= self.processDurationSeconds then
-		self:clearParticipants(target)
-		world:remove(target, WorldWrapper:GetIngredientProgressComponent())
-		self:sendProcessState(target, self.processDurationSeconds, 0, false)
-
 		local nextEntity, nextInstance = self.handsMorphFunc(target)
 		nextInstance.Parent = workspace
 		world:set(target, WorldWrapper:GetReplaceTargetComponent(), { NewTarget = nextEntity })
@@ -171,12 +176,6 @@ function IngredientSystem:Process(deltaTime: number)
 		:forEach(function(entityId: jecs.Entity<nil>, _)
 			if not entityId then
 				return
-			end
-			local progress = world:get(entityId, WorldWrapper:GetIngredientProgressComponent())
-			if progress then
-				self:clearParticipants(entityId)
-				world:remove(entityId, WorldWrapper:GetIngredientProgressComponent())
-				self:sendProcessState(entityId, progress.Elapsed, 0, false)
 			end
 			world:remove(entityId, WorldWrapper:GetReleaseTargetComponent())
 			self.ingredientPool:Release(entityId)
@@ -226,6 +225,9 @@ function IngredientFactory:DefineIngredient(ingredientForm: IngredientForm)
 		ingredientForm.HandsMorphFunc,
 		ingredientForm.ProcessDurationSeconds or Consts.IngredientProcessDurationSeconds
 	)
+	module.Pool:SetReleaseCallback(function(entityId)
+		module.System:clearProcessState(entityId)
+	end)
 
 	return module
 end

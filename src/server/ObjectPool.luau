@@ -16,12 +16,14 @@ local PoolComponent = world:component()
 local ObjectPool = Class.defineClass("ObjectPool")
 
 export type FactoryMethod = () -> (jecs.Entity<nil>, Instance)
+export type ReleaseCallback = (jecs.Entity<nil>) -> ()
 
 export type ObjectPool = {
 	new: (factoryMethod: FactoryMethod, initialSize: number) -> ObjectPool,
 
 	Get: (self: ObjectPool) -> (jecs.Entity<nil>, Instance),
 	Release: (self: ObjectPool, jecs.Entity<nil>) -> (),
+	SetReleaseCallback: (self: ObjectPool, ReleaseCallback) -> (),
 	IsPooled: (self: ObjectPool, entityId: jecs.Entity<nil>) -> boolean,
 }
 
@@ -57,6 +59,10 @@ function ObjectPool:Get(): (jecs.Entity<nil>, Instance)
 end
 
 function ObjectPool:Release(entityId: jecs.Entity<nil>)
+	if self._releaseCallback then
+		self._releaseCallback(entityId)
+	end
+
 	local obj = world:get(entityId, WorldWrapper:GetInstanceComponent()).Instance
 
 	-- сбросить состояние под ваши нужды (позиция, velocity, эффекты)
@@ -72,6 +78,10 @@ function ObjectPool:Release(entityId: jecs.Entity<nil>)
 	world:set(entityId, PoolComponent)
 	self._inUse[entityId] = nil
 	table.insert(self._free, entityId)
+end
+
+function ObjectPool:SetReleaseCallback(callback: ReleaseCallback)
+	self._releaseCallback = callback
 end
 
 function ObjectPool:IsPooled(entityId: jecs.Entity<nil>): boolean
