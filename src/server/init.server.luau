@@ -19,7 +19,13 @@ local Consts = require(ReplicatedStorage.Shared.Consts)
 local Players = game:GetService("Players")
 Players.PlayerAdded:Connect(function(player)
 	WorldWrapper:RegisterPlayer(player)
-	GameCycle:SendState(player)
+	-- ByteNet creates a per-player channel in its own PlayerAdded listener.
+	-- Deferring ensures that listener completes before we write to the channel.
+	task.defer(function()
+		if player.Parent == Players then
+			GameCycle:SendState(player)
+		end
+	end)
 end)
 
 Players.PlayerRemoving:Connect(function(player)

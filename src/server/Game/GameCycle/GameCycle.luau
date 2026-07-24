@@ -62,11 +62,13 @@ function GameCycle:GetState(): GameCycleState
 end
 
 function GameCycle:BroadcastState()
-	Net.gameCycleState.sendToAll(self:GetState())
+	local state = self:GetState()
+	Net.gameCycleState.sendToAll(state)
 end
 
 function GameCycle:SendState(player: Player)
-	Net.gameCycleState.sendTo(self:GetState(), player)
+	local state = self:GetState()
+	Net.gameCycleState.sendTo(state, player)
 end
 
 function GameCycle:CanBuild(): boolean
