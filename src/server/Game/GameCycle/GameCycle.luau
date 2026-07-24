@@ -6,6 +6,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local Net = require(ReplicatedStorage.Shared.Net)
 local Consts = require(ReplicatedStorage.Shared.Consts)
+local SharedGamePhase = require(ReplicatedStorage.Shared.GamePhase)
 
 local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
@@ -19,7 +20,7 @@ local KitchenTable = require(ServerScriptService.Server.Game.Furniture.KitchenTa
 local Plate = require(ServerScriptService.Server.Game.Items.Plate)
 local PlaceHolder = require(ServerScriptService.Server.Components.PlaceHolder)
 
-export type GamePhase = number
+export type GamePhase = SharedGamePhase.GamePhase
 export type GameCycleState = {
 	phase: GamePhase,
 	day: number,
@@ -29,13 +30,7 @@ export type GameCycleState = {
 }
 
 local GameCycle = {
-	Phase = {
-		Lobby = 0,
-		Preparation = 1,
-		Service = 2,
-		Victory = 3,
-		Defeat = 4,
-	},
+	Phase = SharedGamePhase,
 	CountdownDuration = 3,
 	ResultDuration = 5,
 }

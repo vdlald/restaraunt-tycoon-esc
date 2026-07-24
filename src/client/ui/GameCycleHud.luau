@@ -5,16 +5,17 @@ local State = require(StarterPlayer.StarterPlayerScripts.Client.State)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Packages.React)
+local GamePhase = require(ReplicatedStorage.Shared.GamePhase)
 
 local useEffect = React.useEffect
 local useState = React.useState
 
 local phaseNames = {
-	[0] = "LOBBY — Press P to start",
-	[1] = "PREPARATION — Press P to serve",
-	[2] = "SERVICE",
-	[3] = "VICTORY!",
-	[4] = "DEFEAT",
+	[GamePhase.Lobby] = "LOBBY — Press P to start",
+	[GamePhase.Preparation] = "PREPARATION — Press P to serve",
+	[GamePhase.Service] = "SERVICE",
+	[GamePhase.Victory] = "VICTORY!",
+	[GamePhase.Defeat] = "DEFEAT",
 }
 
 local function GameCycleHud()
@@ -64,7 +65,7 @@ local function GameCycleHud()
 		})
 	end
 
-	if phase == 2 then
+	if phase == GamePhase.Service then
 		children.Service = React.createElement("TextLabel", {
 			Size = UDim2.fromScale(0.26, 0.05),
 			Position = UDim2.fromScale(0.37, 0.11),
@@ -77,16 +78,17 @@ local function GameCycleHud()
 		})
 	end
 
-	if phase == 3 or phase == 4 then
+	if phase == GamePhase.Victory or phase == GamePhase.Defeat then
 		children.Result = React.createElement("TextLabel", {
 			Size = UDim2.fromScale(0.5, 0.16),
 			Position = UDim2.fromScale(0.25, 0.42),
-			BackgroundColor3 = phase == 3 and Color3.fromRGB(40, 120, 55) or Color3.fromRGB(145, 45, 45),
+			BackgroundColor3 = phase == GamePhase.Victory and Color3.fromRGB(40, 120, 55)
+				or Color3.fromRGB(145, 45, 45),
 			BackgroundTransparency = 0.1,
 			TextColor3 = Color3.fromRGB(255, 255, 255),
 			Font = Enum.Font.GothamBlack,
 			TextScaled = true,
-			Text = phase == 3 and "VICTORY!" or "DEFEAT",
+			Text = phase == GamePhase.Victory and "VICTORY!" or "DEFEAT",
 		})
 	end
 

@@ -15,6 +15,7 @@ local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Consts = require(ReplicatedStorage.Shared.Consts)
+local GamePhase = require(ReplicatedStorage.Shared.GamePhase)
 local PlacementValidation = require(ReplicatedStorage.Shared.Building.PlacementValidation)
 
 --
@@ -194,7 +195,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	local keyCode = input.KeyCode
 
 	if keyCode == Enum.KeyCode.B then
-		if State.GamePhase:get() ~= 1 then
+		if State.GamePhase:get() ~= GamePhase.Preparation then
 			return
 		end
 		NetClient:ToggleBuildingMode(not State.IsInBuildingMode:get())

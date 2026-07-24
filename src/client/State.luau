@@ -3,12 +3,13 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Net = require(ReplicatedStorage.Shared.Net)
 local Val = require(ReplicatedStorage.Packages.Val)
+local GamePhase = require(ReplicatedStorage.Shared.GamePhase)
 
 local State = {
 	Coins = Val.new(0),
 	IsInBuildingMode = Val.new(false),
 	MovingFurnitureEntity = Val.new(0),
-	GamePhase = Val.new(0),
+	GamePhase = Val.new(GamePhase.Lobby),
 	GameDay = Val.new(1),
 	PhaseCountdown = Val.new(0),
 	GuestsRemaining = Val.new(0),
@@ -26,7 +27,7 @@ Net.gameCycleState.listen(function(data)
 	State.PhaseCountdown:set(data.countdownSeconds)
 	State.GuestsRemaining:set(data.guestsRemaining)
 	State.ServiceTimeRemaining:set(data.serviceSecondsRemaining)
-	if data.phase ~= 1 and State.IsInBuildingMode:get() then
+	if data.phase ~= GamePhase.Preparation and State.IsInBuildingMode:get() then
 		State.IsInBuildingMode:set(false)
 		State.MovingFurnitureEntity:set(0)
 	end
