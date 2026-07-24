@@ -11,6 +11,7 @@ local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
 local BuildingSystem = require(ServerScriptService.Server.Systems.BuildingSystem)
 local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
+local FurnitureStore = require(ServerScriptService.Server.Game.Furniture.FurnitureStore)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Consts = require(ReplicatedStorage.Shared.Consts)
@@ -214,6 +215,10 @@ Net.buildingGhostRotate.listen(function(data: table, player: Player)
 	BuildingSystem:RequestRotation(playerId, data.deltaYaw)
 end)
 
+Net.furniturePurchaseRequest.listen(function(data: table, player: Player)
+	FurnitureStore:RequestPurchase(player, data.furnitureId)
+end)
+
 Net.gamePhaseToggle.listen(function(_: table, player: Player)
 	GameCycle:RequestPhaseToggle(player)
 end)
@@ -223,6 +228,12 @@ DataManager:OnProfileDataChanged(function(event: DataManager.PlayerDataChangedEv
 	local player = event.Player
 	local playerData = event.Data
 
+	Net.playerDataUpdate.sendTo({
+		coins = playerData.CoinsEarned - playerData.CoinsSpend,
+	}, player)
+end)
+
+DataManager:OnProfileLoaded(function(player, playerData)
 	Net.playerDataUpdate.sendTo({
 		coins = playerData.CoinsEarned - playerData.CoinsSpend,
 	}, player)

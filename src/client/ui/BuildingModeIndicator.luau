@@ -38,7 +38,7 @@ local function BuildingModeIndicator()
 		TextColor3 = Color3.fromRGB(255, 255, 255),
 		Font = Enum.Font.GothamBold,
 		TextScaled = true,
-		Text = "BUILD MODE",
+		Text = "BUILD MODE [M]",
 	}, {
 		Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 8) }),
 	})

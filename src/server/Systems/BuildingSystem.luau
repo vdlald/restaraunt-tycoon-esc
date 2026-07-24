@@ -8,11 +8,13 @@ local Class = require(ReplicatedStorage.Shared.Class)
 local Utils = require(ReplicatedStorage.Shared.Utils)
 local Consts = require(ReplicatedStorage.Shared.Consts)
 local PlacementValidation = require(ReplicatedStorage.Shared.Building.PlacementValidation)
+local FurnitureCatalog = require(ReplicatedStorage.Shared.FurnitureCatalog)
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Types)
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
 local BuildingValidation = require(ServerScriptService.Server.Game.Building.BuildingValidation)
+local DataManager = require(ServerScriptService.Server.Player.DataManager)
 
 local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
@@ -35,8 +37,15 @@ function BuildingSystem.new()
 	self.pendingRotations = {}
 	self.lastGhostMoveTime = {}
 	self.lastGhostRotateTime = {}
+	self.canFinalizePurchase = function(): boolean
+		return false
+	end
 
 	return self
+end
+
+function BuildingSystem:SetCanFinalizePurchase(callback: () -> boolean)
+	self.canFinalizePurchase = callback
 end
 
 local function getHiddenFolder(): Folder
@@ -147,7 +156,13 @@ function BuildingSystem:CancelMove(playerEntity: jecs.Entity<nil>)
 
 	local furnitureEntity = moveState.FurnitureEntity
 	local instance = WorldWrapper:FindInstance(furnitureEntity)
-	if instance and instance:IsA("Model") then
+	local pendingPurchase = world:get(furnitureEntity, WorldWrapper:GetPendingFurniturePurchaseComponent())
+	if pendingPurchase then
+		if instance then
+			instance:Destroy()
+		end
+		world:delete(furnitureEntity)
+	elseif instance and instance:IsA("Model") then
 		instance.Parent = moveState.OriginalParent
 		instance:SetPrimaryPartCFrame(moveState.OriginalCFrame)
 	end
@@ -160,8 +175,28 @@ function BuildingSystem:CancelMove(playerEntity: jecs.Entity<nil>)
 	self.lastGhostMoveTime[playerEntity] = nil
 	self.lastGhostRotateTime[playerEntity] = nil
 
-	world:remove(furnitureEntity, WorldWrapper:GetBuildingLockComponent())
+	if not pendingPurchase then
+		world:remove(furnitureEntity, WorldWrapper:GetBuildingLockComponent())
+	end
 	world:remove(playerEntity, WorldWrapper:GetBuildingMoveStateComponent())
+end
+
+function BuildingSystem:StartPurchasePlacement(
+	playerEntity: jecs.Entity<nil>,
+	furnitureEntity: jecs.Entity<nil>
+): boolean
+	if world:has(playerEntity, WorldWrapper:GetBuildingMoveStateComponent()) then
+		return false
+	end
+
+	local playerView = WorldWrapper:FindPlayer(playerEntity)
+	if not playerView then
+		return false
+	end
+
+	world:set(playerEntity, WorldWrapper:GetBuildingModeComponent())
+	self:attemptPickup(playerEntity, furnitureEntity, playerView)
+	return world:has(playerEntity, WorldWrapper:GetBuildingMoveStateComponent())
 end
 
 function BuildingSystem:RequestRotation(playerEntity: jecs.Entity<nil>, deltaYaw: number)
@@ -357,11 +392,8 @@ function BuildingSystem:attemptPlace(
 	end
 
 	-- Валидируем footprint на уровне пола, а не центр модели (у фурнитуры может быть большой FloorOffset)
-	local floorLevelPosition = Vector3.new(
-		ghostCFrame.Position.X,
-		ghostCFrame.Position.Y - moveState.FloorOffset,
-		ghostCFrame.Position.Z
-	)
+	local floorLevelPosition =
+		Vector3.new(ghostCFrame.Position.X, ghostCFrame.Position.Y - moveState.FloorOffset, ghostCFrame.Position.Z)
 	local floorLevelCFrame = CFrame.new(floorLevelPosition) * ghostCFrame.Rotation
 	local validation = BuildingValidation.ValidateModelPlacement(ghost, floorLevelCFrame)
 	if not validation.IsValid then
@@ -375,6 +407,48 @@ function BuildingSystem:attemptPlace(
 		return
 	end
 
+	local pendingPurchase = world:get(furnitureEntity, WorldWrapper:GetPendingFurniturePurchaseComponent())
+	if pendingPurchase then
+		if pendingPurchase.BuyerPlayerEntity ~= playerEntity then
+			Net.buildingPlacementResult.sendTo({ success = false }, playerView:GetPlayer())
+			return
+		end
+		if not self.canFinalizePurchase() then
+			self:CancelMove(playerEntity)
+			Net.furniturePurchaseResult.sendTo({
+				furnitureId = pendingPurchase.FurnitureId,
+				success = false,
+				reason = FurnitureCatalog.PurchaseResultReason.CountdownActive,
+			}, playerView:GetPlayer())
+			return
+		end
+
+		local playerData = DataManager:GetReadOnlyVersion(playerView:GetPlayer())
+		if not playerData or playerData.CoinsEarned - playerData.CoinsSpend < pendingPurchase.Price then
+			self:CancelMove(playerEntity)
+			Net.furniturePurchaseResult.sendTo({
+				furnitureId = pendingPurchase.FurnitureId,
+				success = false,
+				reason = FurnitureCatalog.PurchaseResultReason.InsufficientCoins,
+			}, playerView:GetPlayer())
+			return
+		end
+		if
+			not DataManager:MutateData("buyFurniture", playerView:GetPlayer(), function(data)
+				data.CoinsSpend += pendingPurchase.Price
+			end)
+		then
+			self:CancelMove(playerEntity)
+			Net.furniturePurchaseResult.sendTo({
+				furnitureId = pendingPurchase.FurnitureId,
+				success = false,
+				reason = FurnitureCatalog.PurchaseResultReason.InsufficientCoins,
+			}, playerView:GetPlayer())
+			return
+		end
+		world:remove(furnitureEntity, WorldWrapper:GetPendingFurniturePurchaseComponent())
+	end
+
 	instance.Parent = moveState.OriginalParent
 	instance:SetPrimaryPartCFrame(ghostCFrame)
 
@@ -384,6 +458,13 @@ function BuildingSystem:attemptPlace(
 	world:remove(playerEntity, WorldWrapper:GetBuildingMoveStateComponent())
 
 	Net.buildingPlacementResult.sendTo({ success = true }, playerView:GetPlayer())
+	if pendingPurchase then
+		Net.furniturePurchaseResult.sendTo({
+			furnitureId = pendingPurchase.FurnitureId,
+			success = true,
+			reason = FurnitureCatalog.PurchaseResultReason.None,
+		}, playerView:GetPlayer())
+	end
 	sendBuildingModeState(playerView:GetPlayer(), true, 0)
 end
 

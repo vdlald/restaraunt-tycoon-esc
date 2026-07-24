@@ -83,6 +83,14 @@ local buildingMoveStateComponent = world:component() :: BuildingMoveStateCompone
 export type BuildingGhostTargetComponent = jecs.Id<{ Position: Vector3 }>
 local buildingGhostTargetComponent = world:component() :: BuildingGhostTargetComponent
 
+-- PendingFurniturePurchase - временная покупка до подтверждения размещения
+export type PendingFurniturePurchaseComponent = jecs.Id<{
+	BuyerPlayerEntity: jecs.Entity<nil>,
+	FurnitureId: string,
+	Price: number,
+}>
+local pendingFurniturePurchaseComponent = world:component() :: PendingFurniturePurchaseComponent
+
 --
 -- Объявление WorldWrapper
 --
@@ -110,6 +118,7 @@ export type WorldWrapper = {
 	GetBuildingLockComponent: (self: WorldWrapper) -> BuildingLockComponent,
 	GetBuildingMoveStateComponent: (self: WorldWrapper) -> BuildingMoveStateComponent,
 	GetBuildingGhostTargetComponent: (self: WorldWrapper) -> BuildingGhostTargetComponent,
+	GetPendingFurniturePurchaseComponent: (self: WorldWrapper) -> PendingFurniturePurchaseComponent,
 
 	-- lookup
 	FindPlayer: (self: WorldWrapper, playerId: jecs.Entity<nil>) -> Types.PlayerView?,
@@ -186,6 +195,10 @@ end
 
 function WorldWrapper:GetBuildingGhostTargetComponent(): BuildingGhostTargetComponent
 	return buildingGhostTargetComponent
+end
+
+function WorldWrapper:GetPendingFurniturePurchaseComponent(): PendingFurniturePurchaseComponent
+	return pendingFurniturePurchaseComponent
 end
 
 function WorldWrapper:FindPlayer(playerId: jecs.Entity<nil>): Types.PlayerView?

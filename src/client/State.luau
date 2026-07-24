@@ -22,6 +22,12 @@ export type IngredientProcessState = {
 	participantCount: number,
 }
 
+export type FurniturePurchaseResult = {
+	furnitureId: string,
+	success: boolean,
+	reason: number,
+}
+
 local State = {
 	Coins = Val.new(0),
 	IsInBuildingMode = Val.new(false),
@@ -32,6 +38,8 @@ local State = {
 	GuestsRemaining = Val.new(0),
 	ServiceTimeRemaining = Val.new(0),
 	DayReceipt = Val.new(nil :: DayReceipt?),
+	IsFurnitureStoreOpen = Val.new(false),
+	FurniturePurchaseResult = Val.new(nil :: FurniturePurchaseResult?),
 	IngredientProcessStates = Val.new({} :: { [number]: IngredientProcessState }),
 }
 
@@ -56,6 +64,16 @@ Net.gameCycleState.listen(function(data)
 	if data.phase ~= GamePhase.Preparation and State.IsInBuildingMode:get() then
 		State.IsInBuildingMode:set(false)
 		State.MovingFurnitureEntity:set(0)
+	end
+	if data.phase ~= GamePhase.Preparation or data.countdownSeconds > 0 then
+		State.IsFurnitureStoreOpen:set(false)
+	end
+end)
+
+Net.furniturePurchaseResult.listen(function(data)
+	State.FurniturePurchaseResult:set(data :: FurniturePurchaseResult)
+	if data.success then
+		State.IsFurnitureStoreOpen:set(false)
 	end
 end)
 

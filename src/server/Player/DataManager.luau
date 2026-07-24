@@ -36,6 +36,7 @@ if RunService:IsStudio() then
 end
 
 local Profiles: { [Player]: Profile } = {}
+local onProfileLoaded = function(_: Player, _: PlayerData) end
 
 --
 -- Вход игрока
@@ -68,6 +69,7 @@ local function onPlayerAdded(player: Player)
 	-- Проверяем, что игрок всё ещё в игре
 	if player.Parent == Players then
 		Profiles[player] = profile
+		onProfileLoaded(player, profile.Data)
 	else
 		-- Игрок вышел, пока грузились данные — закрываем сессию
 		profile:EndSession()
@@ -102,6 +104,19 @@ function DataManager:OnProfileDataChanged(handler: typeof(onProfileDataChanged))
 	onProfileDataChanged = function(event: PlayerDataChangedEvent)
 		previous(event)
 		handler(event)
+	end
+end
+
+function DataManager:OnProfileLoaded(handler: typeof(onProfileLoaded))
+	local previous = onProfileLoaded
+
+	onProfileLoaded = function(player, data)
+		previous(player, data)
+		handler(player, data)
+	end
+
+	for player, profile in Profiles do
+		handler(player, profile.Data)
 	end
 end
 

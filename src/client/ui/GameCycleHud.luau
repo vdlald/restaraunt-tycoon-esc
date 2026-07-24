@@ -13,7 +13,7 @@ local useState = React.useState
 
 local phaseNames = {
 	[GamePhase.Lobby] = "LOBBY — Press P to start",
-	[GamePhase.Preparation] = "PREPARATION — Press P to serve",
+	[GamePhase.Preparation] = "PREPARATION — B: store, M: build, P: serve",
 	[GamePhase.Service] = "SERVICE",
 	[GamePhase.Victory] = "VICTORY!",
 	[GamePhase.Defeat] = "DEFEAT",

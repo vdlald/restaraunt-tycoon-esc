@@ -75,6 +75,20 @@ local Net = ByteNet.defineNamespace("Game", function()
 			}),
 		}),
 
+		furniturePurchaseRequest = ByteNet.definePacket({
+			value = ByteNet.struct({
+				furnitureId = ByteNet.string,
+			}),
+		}),
+
+		furniturePurchaseResult = ByteNet.definePacket({
+			value = ByteNet.struct({
+				furnitureId = ByteNet.string,
+				success = ByteNet.bool,
+				reason = ByteNet.uint8,
+			}),
+		}),
+
 		gamePhaseToggle = ByteNet.definePacket({
 			value = ByteNet.struct({}),
 		}),

@@ -168,7 +168,8 @@ local function updateGhostTarget()
 
 	local candidateCFrame = CFrame.new(targetPosition) * ghost:GetPrimaryPartCFrame().Rotation
 
-	local validation = PlacementValidation.Validate(candidateCFrame, footprintSize, buildZoneParts, Consts.BuildingMaxHoverHeight)
+	local validation =
+		PlacementValidation.Validate(candidateCFrame, footprintSize, buildZoneParts, Consts.BuildingMaxHoverHeight)
 	setGhostValid(validation.IsValid)
 
 	local now = tick()
@@ -194,7 +195,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 
 	local keyCode = input.KeyCode
 
-	if keyCode == Enum.KeyCode.B then
+	if keyCode == Enum.KeyCode.M then
 		if State.GamePhase:get() ~= GamePhase.Preparation then
 			return
 		end

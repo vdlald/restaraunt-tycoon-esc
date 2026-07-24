@@ -100,6 +100,10 @@ function GameCycle:CanBuild(): boolean
 	return self.phase == self.Phase.Preparation
 end
 
+function GameCycle:CanPurchaseFurniture(): boolean
+	return self.phase == self.Phase.Preparation and self.countdownTarget == nil
+end
+
 function GameCycle:CanCook(): boolean
 	return self.phase == self.Phase.Preparation or self.phase == self.Phase.Service
 end
@@ -405,6 +409,10 @@ end)
 
 Guest.SetExitedHandler(function(guestEntity)
 	GameCycle:OnGuestExited(guestEntity)
+end)
+
+BuildingSystem:SetCanFinalizePurchase(function()
+	return GameCycle:CanPurchaseFurniture()
 end)
 
 return GameCycle
