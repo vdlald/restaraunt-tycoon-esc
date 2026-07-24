@@ -33,6 +33,8 @@ function BuildingSystem.new()
 	self.cachedQueryMove = world:query(WorldWrapper:GetBuildingMoveStateComponent()):cached()
 
 	self.pendingRotations = {}
+	self.lastGhostMoveTime = {}
+	self.lastGhostRotateTime = {}
 
 	return self
 end
@@ -47,32 +49,49 @@ local function getHiddenFolder(): Folder
 	return folder :: Folder
 end
 
-local function stripTags(instance: Instance)
+local function removeAllTags(instance: Instance)
 	local targets = { instance }
 	for _, desc in instance:GetDescendants() do
 		table.insert(targets, desc)
 	end
 
 	for _, target in targets do
-		target:RemoveTag(Consts.Tags.Interactable)
-		target:RemoveTag(Consts.Tags.PlaceHolder)
-		target:RemoveTag(Consts.Tags.Placed)
-		target:RemoveTag(Consts.Tags.Holds)
+		for _, tag in target:GetTags() do
+			target:RemoveTag(tag)
+		end
 		target:SetAttribute(Consts.Attributes.EntityId, nil)
 	end
 end
 
-local function createGhost(original: Model, player: Player): Model
+local function stripScriptsAndConstraints(instance: Instance)
+	for _, desc in instance:GetDescendants() do
+		if
+			desc:IsA("LuaSourceContainer")
+			or desc:IsA("JointInstance")
+			or desc:IsA("WeldConstraint")
+			or desc:IsA("NoCollisionConstraint")
+		then
+			desc:Destroy()
+		end
+	end
+end
+
+local function createGhost(original: Model, player: Player): Model?
+	if not original.PrimaryPart then
+		return nil
+	end
+
 	local ghost = original:Clone()
-	stripTags(ghost)
+	removeAllTags(ghost)
 	ghost:AddTag(Consts.Tags.BuildingGhost)
 	ghost:SetAttribute("MoverUserId", player.UserId)
+	stripScriptsAndConstraints(ghost)
 
 	for _, desc in ghost:GetDescendants() do
 		if desc:IsA("BasePart") then
 			desc.CanCollide = false
 			desc.Anchored = true
-			desc.Transparency = 0.5
+			desc.Transparency = Consts.BuildingGhostTransparency
 		end
 	end
 
@@ -87,6 +106,14 @@ local function getPlayerEntityFromView(playerView: Types.PlayerView): jecs.Entit
 		return nil
 	end
 	return playerEntity
+end
+
+local function getPlayerCharacterPosition(playerView: Types.PlayerView): Vector3?
+	local character = playerView:GetCharacter()
+	if not character then
+		return nil
+	end
+	return character:GetPivot().Position
 end
 
 local function sendBuildingModeState(player: Player, enabled: boolean, movingEntity: number)
@@ -129,12 +156,42 @@ function BuildingSystem:CancelMove(playerEntity: jecs.Entity<nil>)
 		moveState.GhostInstance:Destroy()
 	end
 
+	self.pendingRotations[playerEntity] = nil
+	self.lastGhostMoveTime[playerEntity] = nil
+	self.lastGhostRotateTime[playerEntity] = nil
+
 	world:remove(furnitureEntity, WorldWrapper:GetBuildingLockComponent())
 	world:remove(playerEntity, WorldWrapper:GetBuildingMoveStateComponent())
 end
 
 function BuildingSystem:RequestRotation(playerEntity: jecs.Entity<nil>, deltaYaw: number)
+	if not world:has(playerEntity, WorldWrapper:GetBuildingMoveStateComponent()) then
+		return
+	end
+
+	local now = tick()
+	local last = self.lastGhostRotateTime[playerEntity] or 0
+	if now - last < Consts.BuildingGhostServerRateLimit then
+		return
+	end
+	self.lastGhostRotateTime[playerEntity] = now
+
 	self.pendingRotations[playerEntity] = (self.pendingRotations[playerEntity] or 0) + deltaYaw
+end
+
+function BuildingSystem:SetGhostTarget(playerEntity: jecs.Entity<nil>, position: Vector3)
+	if not world:has(playerEntity, WorldWrapper:GetBuildingMoveStateComponent()) then
+		return
+	end
+
+	local now = tick()
+	local last = self.lastGhostMoveTime[playerEntity] or 0
+	if now - last < Consts.BuildingGhostServerRateLimit then
+		return
+	end
+	self.lastGhostMoveTime[playerEntity] = now
+
+	world:set(playerEntity, WorldWrapper:GetBuildingGhostTargetComponent(), { Position = position })
 end
 
 function BuildingSystem:processToggles()
@@ -202,6 +259,12 @@ function BuildingSystem:processGhostMovement()
 			continue
 		end
 
+		local playerView = WorldWrapper:FindPlayer(playerEntity)
+		if not playerView then
+			continue
+		end
+		local playerPosition = getPlayerCharacterPosition(playerView)
+
 		local targetPosition = ghostTarget.Position
 		local originalRotation = moveState.OriginalCFrame.Rotation
 		local candidateCFrame = CFrame.new(targetPosition) * originalRotation * CFrame.Angles(0, moveState.YawOffset, 0)
@@ -210,6 +273,11 @@ function BuildingSystem:processGhostMovement()
 		if validation.IsValid and validation.FloorY then
 			local finalPosition =
 				Vector3.new(targetPosition.X, validation.FloorY + moveState.FloorOffset, targetPosition.Z)
+
+			if playerPosition and (finalPosition - playerPosition).Magnitude > Consts.BuildingMaxCarryDistance then
+				continue
+			end
+
 			local finalCFrame = CFrame.new(finalPosition) * originalRotation * CFrame.Angles(0, moveState.YawOffset, 0)
 			ghost:SetPrimaryPartCFrame(finalCFrame)
 		end
@@ -231,11 +299,18 @@ function BuildingSystem:attemptPickup(
 		return
 	end
 
+	if not instance.PrimaryPart then
+		return
+	end
+
 	local originalCFrame = instance:GetPrimaryPartCFrame()
 	local originalParent = instance.Parent
 	local floorOffset = computeFloorOffset(instance)
 
 	local ghost = createGhost(instance, playerView:GetPlayer())
+	if not ghost then
+		return
+	end
 	instance.Parent = getHiddenFolder()
 
 	world:set(playerEntity, WorldWrapper:GetBuildingMoveStateComponent(), {
@@ -268,7 +343,18 @@ function BuildingSystem:attemptPlace(
 	playerView: Types.PlayerView
 )
 	local ghost = moveState.GhostInstance
+	if not ghost.PrimaryPart then
+		Net.buildingPlacementResult.sendTo({ success = false }, playerView:GetPlayer())
+		return
+	end
+
 	local ghostCFrame = ghost:GetPrimaryPartCFrame()
+
+	local playerPosition = getPlayerCharacterPosition(playerView)
+	if playerPosition and (ghostCFrame.Position - playerPosition).Magnitude > Consts.BuildingMaxCarryDistance then
+		Net.buildingPlacementResult.sendTo({ success = false }, playerView:GetPlayer())
+		return
+	end
 
 	local validation = BuildingValidation.ValidateModelPlacement(ghost, ghostCFrame)
 	if not validation.IsValid then

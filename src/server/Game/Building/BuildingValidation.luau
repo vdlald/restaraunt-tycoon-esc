@@ -8,26 +8,14 @@ local PlacementValidation = require(ReplicatedStorage.Shared.Building.PlacementV
 
 local BuildingValidation = {}
 
-local buildZoneParts: { BasePart }? = nil
-
 local function getBuildZoneParts(): { BasePart }
-	if buildZoneParts then
-		return buildZoneParts
-	end
-
 	local parts = {}
 	for _, instance in CollectionService:GetTagged(Consts.Tags.BuildZone) do
 		if instance:IsA("BasePart") then
 			table.insert(parts, instance :: BasePart)
 		end
 	end
-
-	buildZoneParts = parts
 	return parts
-end
-
-function BuildingValidation.RefreshBuildZones()
-	buildZoneParts = nil
 end
 
 function BuildingValidation.GetBuildZoneParts(): { BasePart }
@@ -45,7 +33,7 @@ function BuildingValidation.ValidateModelPlacement(
 	end
 
 	local footprintSize = Vector2.new(primaryPart.Size.X, primaryPart.Size.Z)
-	local maxHover = maxHoverHeight or 0.5
+	local maxHover = maxHoverHeight or Consts.BuildingMaxHoverHeight
 
 	return PlacementValidation.Validate(targetCFrame, footprintSize, getBuildZoneParts(), maxHover)
 end

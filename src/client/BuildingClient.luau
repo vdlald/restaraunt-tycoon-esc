@@ -25,8 +25,6 @@ local ghostHighlight: Highlight? = nil
 
 local lastSentPosition: Vector3? = nil
 local lastSentTime = 0
-local SEND_INTERVAL = 1 / 30
-local SEND_THRESHOLD = 0.05
 
 --
 -- Helpers
@@ -145,6 +143,17 @@ local function updateGhostTarget()
 	end
 
 	local targetPosition = result.Position
+
+	local character = player.Character
+	if not character then
+		return
+	end
+	local playerPosition = character:GetPivot().Position
+	if (targetPosition - playerPosition).Magnitude > Consts.BuildingMaxCarryDistance then
+		setGhostValid(false)
+		return
+	end
+
 	local buildZoneParts = getBuildZoneParts()
 	if #buildZoneParts == 0 then
 		return
@@ -155,13 +164,13 @@ local function updateGhostTarget()
 
 	local candidateCFrame = CFrame.new(targetPosition) * ghost:GetPrimaryPartCFrame().Rotation
 
-	local validation = PlacementValidation.Validate(candidateCFrame, footprintSize, buildZoneParts, 0.5)
+	local validation = PlacementValidation.Validate(candidateCFrame, footprintSize, buildZoneParts, Consts.BuildingMaxHoverHeight)
 	setGhostValid(validation.IsValid)
 
 	local now = tick()
 	local shouldSend = not lastSentPosition
-		or (targetPosition - lastSentPosition).Magnitude >= SEND_THRESHOLD
-		or (now - lastSentTime) >= SEND_INTERVAL
+		or (targetPosition - lastSentPosition).Magnitude >= Consts.BuildingGhostSendThreshold
+		or (now - lastSentTime) >= Consts.BuildingGhostSendInterval
 
 	if shouldSend then
 		NetClient:BuildingGhostMove(targetPosition)

@@ -129,11 +129,7 @@ Net.buildingGhostMove.listen(function(data: table, player: Player)
 		return
 	end
 
-	if not world:has(playerId, WorldWrapper:GetBuildingMoveStateComponent()) then
-		return
-	end
-
-	world:set(playerId, WorldWrapper:GetBuildingGhostTargetComponent(), { Position = data.position })
+	BuildingSystem:SetGhostTarget(playerId, data.position)
 end)
 
 Net.buildingGhostRotate.listen(function(data: table, player: Player)

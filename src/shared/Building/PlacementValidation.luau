@@ -13,6 +13,8 @@ export type ValidationResult = {
 	FloorY: number?,
 }
 
+local Consts = require(game:GetService("ReplicatedStorage").Shared.Consts)
+
 local function isCornerInsidePart(worldCorner: Vector3, part: BasePart): boolean
 	local localCorner = part.CFrame:PointToObjectSpace(worldCorner)
 	local halfSize = part.Size / 2
@@ -87,7 +89,7 @@ function PlacementValidation.Validate(
 
 	local floorY = floorPart.Position.Y + floorPart.Size.Y / 2
 	local hover = position.Y - floorY
-	if hover < -0.1 or hover > maxHoverHeight then
+	if hover < -Consts.BuildingFloorSnapTolerance or hover > maxHoverHeight then
 		return { IsValid = false, FloorPart = floorPart, FloorY = floorY }
 	end
 
