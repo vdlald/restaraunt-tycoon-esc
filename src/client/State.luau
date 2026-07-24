@@ -5,6 +5,18 @@ local Net = require(ReplicatedStorage.Shared.Net)
 local Val = require(ReplicatedStorage.Packages.Val)
 local GamePhase = require(ReplicatedStorage.Shared.GamePhase)
 
+export type ReceiptDish = {
+	dishName: string,
+	count: number,
+	earned: number,
+}
+
+export type DayReceipt = {
+	day: number,
+	dishes: { ReceiptDish },
+	total: number,
+}
+
 local State = {
 	Coins = Val.new(0),
 	IsInBuildingMode = Val.new(false),
@@ -14,11 +26,16 @@ local State = {
 	PhaseCountdown = Val.new(0),
 	GuestsRemaining = Val.new(0),
 	ServiceTimeRemaining = Val.new(0),
+	DayReceipt = Val.new(nil :: DayReceipt?),
 }
 
 Net.playerDataUpdate.listen(function(data)
 	local coins: number = data.coins
 	State.Coins:set(coins)
+end)
+
+Net.dayReceipt.listen(function(data)
+	State.DayReceipt:set(data :: DayReceipt)
 end)
 
 Net.gameCycleState.listen(function(data)
@@ -27,6 +44,9 @@ Net.gameCycleState.listen(function(data)
 	State.PhaseCountdown:set(data.countdownSeconds)
 	State.GuestsRemaining:set(data.guestsRemaining)
 	State.ServiceTimeRemaining:set(data.serviceSecondsRemaining)
+	if data.phase == GamePhase.Lobby then
+		State.DayReceipt:set(nil)
+	end
 	if data.phase ~= GamePhase.Preparation and State.IsInBuildingMode:get() then
 		State.IsInBuildingMode:set(false)
 		State.MovingFurnitureEntity:set(0)

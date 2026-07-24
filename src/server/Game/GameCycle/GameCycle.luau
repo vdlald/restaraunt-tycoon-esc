@@ -29,10 +29,25 @@ export type GameCycleState = {
 	serviceSecondsRemaining: number,
 }
 
+export type ReceiptDish = {
+	dishName: string,
+	count: number,
+	earned: number,
+}
+
+export type DayReceipt = {
+	day: number,
+	dishes: { ReceiptDish },
+	total: number,
+}
+
 local GameCycle = {
 	Phase = SharedGamePhase,
 	CountdownDuration = 3,
 	ResultDuration = 5,
+	DishPrices = {
+		Pie = 10,
+	},
 }
 
 GameCycle.phase = GameCycle.Phase.Lobby
@@ -45,6 +60,11 @@ GameCycle.resultSecondsRemaining = 0
 GameCycle.sceneInstances = {} :: { Instance }
 GameCycle.hasStarterScene = false
 GameCycle.lastSentSecond = -1
+GameCycle.currentReceipt = {
+	day = 1,
+	dishes = {},
+	total = 0,
+} :: DayReceipt
 
 function GameCycle:GetDayProgression(day: number): (number, number)
 	local guests = day + 2
@@ -69,6 +89,10 @@ end
 function GameCycle:SendState(player: Player)
 	local state = self:GetState()
 	Net.gameCycleState.sendTo(state, player)
+end
+
+function GameCycle:SendReceipt()
+	Net.dayReceipt.sendToAll(self.currentReceipt)
 end
 
 function GameCycle:CanBuild(): boolean
@@ -215,6 +239,11 @@ function GameCycle:EnterLobby()
 	self.countdownTarget = nil
 	self.serviceSecondsRemaining = 0
 	self.resultSecondsRemaining = 0
+	self.currentReceipt = {
+		day = 1,
+		dishes = {},
+		total = 0,
+	}
 	self:BroadcastState()
 end
 
@@ -223,6 +252,11 @@ function GameCycle:EnterPreparation()
 	self.countdownSeconds = 0
 	self.countdownTarget = nil
 	self.serviceSecondsRemaining = 0
+	self.currentReceipt = {
+		day = self.day,
+		dishes = {},
+		total = 0,
+	}
 	if not self.hasStarterScene then
 		self:CreateStarterScene()
 		self.hasStarterScene = true
@@ -270,10 +304,34 @@ function GameCycle:RequestPhaseToggle(_: Player)
 	self:BroadcastState()
 end
 
-function GameCycle:OnGuestFed(_: Player, guestEntity: number): boolean
+function GameCycle:OnGuestFed(_: Player, guestEntity: number, dishEntity: number): number?
 	if not self:CanFeedGuests() or self.guestsRemaining <= 0 then
-		return false
+		return nil
 	end
+	local dish = WorldWrapper:FindInstance(dishEntity)
+	if not dish then
+		return nil
+	end
+	local dishName = dish.Name
+	local earned = self.DishPrices[dishName] or 10
+	local receiptDish: ReceiptDish? = nil
+	for _, line in self.currentReceipt.dishes do
+		if line.dishName == dishName then
+			receiptDish = line
+			break
+		end
+	end
+	if receiptDish then
+		receiptDish.count += 1
+		receiptDish.earned += earned
+	else
+		table.insert(self.currentReceipt.dishes, {
+			dishName = dishName,
+			count = 1,
+			earned = earned,
+		})
+	end
+	self.currentReceipt.total += earned
 
 	local guest = WorldWrapper:FindInstance(guestEntity)
 	if guest then
@@ -281,6 +339,7 @@ function GameCycle:OnGuestFed(_: Player, guestEntity: number): boolean
 	end
 	self.guestsRemaining -= 1
 	if self.guestsRemaining == 0 then
+		self:SendReceipt()
 		if self.day >= 20 then
 			self:EnterResult(self.Phase.Victory)
 		else
@@ -290,7 +349,7 @@ function GameCycle:OnGuestFed(_: Player, guestEntity: number): boolean
 	else
 		self:BroadcastState()
 	end
-	return true
+	return earned
 end
 
 function GameCycle:Process(deltaTime: number)
@@ -329,8 +388,8 @@ function GameCycle:Process(deltaTime: number)
 	end
 end
 
-Guest.SetFedHandler(function(player, guestEntity)
-	return GameCycle:OnGuestFed(player, guestEntity)
+Guest.SetFedHandler(function(player, guestEntity, dishEntity)
+	return GameCycle:OnGuestFed(player, guestEntity, dishEntity)
 end)
 
 return GameCycle

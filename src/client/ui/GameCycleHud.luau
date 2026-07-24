@@ -1,6 +1,7 @@
 --!strict
 
 local StarterPlayer = game:GetService("StarterPlayer")
+local UserInputService = game:GetService("UserInputService")
 local State = require(StarterPlayer.StarterPlayerScripts.Client.State)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -24,6 +25,8 @@ local function GameCycleHud()
 	local countdown, setCountdown = useState(State.PhaseCountdown:get())
 	local guests, setGuests = useState(State.GuestsRemaining:get())
 	local serviceTime, setServiceTime = useState(State.ServiceTimeRemaining:get())
+	local receipt, setReceipt = useState(State.DayReceipt:get())
+	local receiptClosed, setReceiptClosed = useState(false)
 
 	useEffect(function()
 		local disconnects = {
@@ -32,6 +35,10 @@ local function GameCycleHud()
 			State.PhaseCountdown:on(setCountdown),
 			State.GuestsRemaining:on(setGuests),
 			State.ServiceTimeRemaining:on(setServiceTime),
+			State.DayReceipt:on(function(nextReceipt)
+				setReceipt(nextReceipt)
+				setReceiptClosed(false)
+			end),
 		}
 		return function()
 			for _, disconnect in disconnects do
@@ -39,6 +46,21 @@ local function GameCycleHud()
 			end
 		end
 	end, {})
+
+	useEffect(function()
+		if not receipt or receiptClosed then
+			return function() end
+		end
+
+		local connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+			if not gameProcessed and input.KeyCode == Enum.KeyCode.C then
+				setReceiptClosed(true)
+			end
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, { phase, receipt, receiptClosed })
 
 	local children = {
 		Phase = React.createElement("TextLabel", {
@@ -76,6 +98,91 @@ local function GameCycleHud()
 			TextScaled = true,
 			Text = string.format("Guests: %d  |  %ds", guests, serviceTime),
 		})
+	end
+
+	if receipt and not receiptClosed then
+		local receiptLines = {
+			Layout = React.createElement("UIListLayout", {
+				Padding = UDim.new(0, 5),
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			}),
+			Title = React.createElement("TextLabel", {
+				LayoutOrder = 1,
+				Size = UDim2.new(1, 0, 0, 34),
+				BackgroundTransparency = 1,
+				Text = "RESTAURANT RECEIPT",
+				TextColor3 = Color3.fromRGB(50, 45, 38),
+				Font = Enum.Font.RobotoMono,
+				TextSize = 24,
+				ZIndex = 4,
+			}),
+			Day = React.createElement("TextLabel", {
+				LayoutOrder = 2,
+				Size = UDim2.new(1, 0, 0, 24),
+				BackgroundTransparency = 1,
+				Text = string.format("Day %d — thank you!", receipt.day),
+				TextColor3 = Color3.fromRGB(80, 72, 60),
+				Font = Enum.Font.RobotoMono,
+				TextSize = 16,
+				ZIndex = 4,
+			}),
+			Divider = React.createElement("Frame", {
+				LayoutOrder = 3,
+				Size = UDim2.new(1, 0, 0, 1),
+				BackgroundColor3 = Color3.fromRGB(110, 100, 85),
+				BorderSizePixel = 0,
+				ZIndex = 4,
+			}),
+		}
+
+		for index, line in receipt.dishes do
+			receiptLines[`Dish{index}`] = React.createElement("TextLabel", {
+				LayoutOrder = 3 + index,
+				Size = UDim2.new(1, 0, 0, 24),
+				BackgroundTransparency = 1,
+				Text = string.format("%dx %-14s %4d coins", line.count, line.dishName, line.earned),
+				TextColor3 = Color3.fromRGB(50, 45, 38),
+				Font = Enum.Font.RobotoMono,
+				TextSize = 17,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				ZIndex = 4,
+			})
+		end
+
+		receiptLines.Total = React.createElement("TextLabel", {
+			LayoutOrder = 100,
+			Size = UDim2.new(1, 0, 0, 30),
+			BackgroundTransparency = 1,
+			Text = string.format("TOTAL: %d coins", receipt.total),
+			TextColor3 = Color3.fromRGB(35, 100, 55),
+			Font = Enum.Font.RobotoMono,
+			TextSize = 21,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			ZIndex = 4,
+		})
+		receiptLines.Close = React.createElement("TextButton", {
+			LayoutOrder = 101,
+			Size = UDim2.new(1, 0, 0, 30),
+			BackgroundColor3 = Color3.fromRGB(95, 85, 70),
+			BorderSizePixel = 0,
+			Text = "CLOSE [C]",
+			TextColor3 = Color3.fromRGB(255, 255, 255),
+			Font = Enum.Font.RobotoMono,
+			TextSize = 17,
+			ZIndex = 4,
+			[React.Event.Activated] = function()
+				setReceiptClosed(true)
+			end,
+		})
+
+		children.Receipt = React.createElement("Frame", {
+			Size = UDim2.fromOffset(390, 270),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			BackgroundColor3 = Color3.fromRGB(245, 238, 215),
+			BorderSizePixel = 0,
+			ZIndex = 3,
+		}, receiptLines)
 	end
 
 	if phase == GamePhase.Victory or phase == GamePhase.Defeat then

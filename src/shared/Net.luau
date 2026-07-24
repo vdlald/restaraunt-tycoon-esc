@@ -69,6 +69,18 @@ local Net = ByteNet.defineNamespace("Game", function()
 				serviceSecondsRemaining = ByteNet.uint16,
 			}),
 		}),
+
+		dayReceipt = ByteNet.definePacket({
+			value = ByteNet.struct({
+				day = ByteNet.uint8,
+				dishes = ByteNet.array(ByteNet.struct({
+					dishName = ByteNet.string,
+					count = ByteNet.uint8,
+					earned = ByteNet.uint16,
+				})),
+				total = ByteNet.uint16,
+			}),
+		}),
 	}
 end)
 

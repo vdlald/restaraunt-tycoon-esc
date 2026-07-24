@@ -21,8 +21,12 @@ local world = WorldWrapper:GetWorld()
 export type GuestNpcComponent = jecs.Id<nil>
 local GuestNpcComponent = world:component() :: GuestNpcComponent
 
-local onFed: (Player, jecs.Entity<nil>) -> boolean = function(_: Player, _: jecs.Entity<nil>)
-	return false
+local onFed: (Player, jecs.Entity<nil>, jecs.Entity<nil>) -> number? = function(
+	_: Player,
+	_: jecs.Entity<nil>,
+	_: jecs.Entity<nil>
+)
+	return nil
 end
 
 --
@@ -79,14 +83,15 @@ function System:processPlayerInteract(entityId: jecs.Entity<nil>, playerView: Ty
 	if not world:has(equippedTool, DishFactory:GetAbstractDishComponent()) then
 		return
 	end
-	if not onFed(playerView:GetPlayer(), entityId) then
+	local earned = onFed(playerView:GetPlayer(), entityId, equippedTool)
+	if not earned then
 		return
 	end
 	world:set(equippedTool, WorldWrapper:GetReleaseTargetComponent())
 	playerView:TakeFromHands()
 
 	DataManager:MutateData("feedGuest", playerView:GetPlayer(), function(data)
-		data.CoinsEarned += 10
+		data.CoinsEarned += earned
 	end)
 end
 
@@ -96,7 +101,7 @@ return {
 	Create = CreateGuestNpc,
 	Component = GuestNpcComponent,
 	System = System.new(),
-	SetFedHandler = function(handler: (Player, jecs.Entity<nil>) -> boolean)
+	SetFedHandler = function(handler: (Player, jecs.Entity<nil>, jecs.Entity<nil>) -> number?)
 		onFed = handler
 	end,
 }
