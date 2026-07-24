@@ -12,7 +12,6 @@ local BuildingSystem = require(ServerScriptService.Server.Systems.BuildingSystem
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Consts = require(ReplicatedStorage.Shared.Consts)
-local CollectionService = game:GetService("CollectionService")
 
 --
 -- Login
@@ -256,16 +255,3 @@ PlaceHolder.System:Place(platePH2, plateEntity3)
 -- Npc
 local guestEntity, guestInstance = GuestNpc.Create()
 guestInstance.Parent = workspace
-
--- BuildZone fallback: если в мире нет зоны строительства, создаём большую невидимую площадку
-if #CollectionService:GetTagged(Consts.Tags.BuildZone) == 0 then
-	local buildZone = Instance.new("Part")
-	buildZone.Name = "BuildZone"
-	buildZone.Size = Vector3.new(200, 1, 200)
-	buildZone.Position = Vector3.new(0, -0.5, 0)
-	buildZone.Anchored = true
-	buildZone.CanCollide = true
-	buildZone.Transparency = 1
-	buildZone:AddTag(Consts.Tags.BuildZone)
-	buildZone.Parent = workspace
-end
