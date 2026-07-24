@@ -13,6 +13,8 @@ local Consts = {
 		Placed = "Placed",
 		PlaceHolder = "PlaceHolder",
 		Interactable = "Interactable",
+		BuildZone = "BuildZone",
+		BuildingGhost = "BuildingGhost",
 	},
 }
 

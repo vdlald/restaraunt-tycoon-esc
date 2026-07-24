@@ -44,6 +44,37 @@ local replaceTargetComponent = world:component() :: ReplaceTargetComponent
 export type ReleaseTargetComponent = jecs.Id<nil>
 local releaseTargetComponent = world:component() :: ReleaseTargetComponent
 
+-- BuildingMode - игрок в режиме строительства
+export type BuildingModeComponent = jecs.Id<nil>
+local buildingModeComponent = world:component() :: BuildingModeComponent
+
+-- WantsToToggleBuildingMode - запрос на включение/выключение режима строительства
+export type WantsToToggleBuildingModeComponent = jecs.Id<{ Enabled: boolean }>
+local wantsToToggleBuildingModeComponent = world:component() :: WantsToToggleBuildingModeComponent
+
+-- BuildingMovable - фурнитуру можно двигать в режиме строительства
+export type BuildingMovableComponent = jecs.Id<nil>
+local buildingMovableComponent = world:component() :: BuildingMovableComponent
+
+-- BuildingLock - бронирование фурнитуры за игроком
+export type BuildingLockComponent = jecs.Id<{ OwnerPlayerEntity: jecs.Entity<nil> }>
+local buildingLockComponent = world:component() :: BuildingLockComponent
+
+-- BuildingMoveState - состояние активного перемещения фурнитуры
+export type BuildingMoveStateComponent = jecs.Id<{
+	FurnitureEntity: jecs.Entity<nil>,
+	GhostInstance: Model,
+	OriginalCFrame: CFrame,
+	OriginalParent: Instance,
+	FloorOffset: number,
+	YawOffset: number,
+}>
+local buildingMoveStateComponent = world:component() :: BuildingMoveStateComponent
+
+-- BuildingGhostTarget - целевая позиция призрака от клиента
+export type BuildingGhostTargetComponent = jecs.Id<{ Position: Vector3 }>
+local buildingGhostTargetComponent = world:component() :: BuildingGhostTargetComponent
+
 --
 -- Объявление WorldWrapper
 --
@@ -62,6 +93,13 @@ export type WorldWrapper = {
 	GetReplaceTargetComponent: (self: WorldWrapper) -> ReplaceTargetComponent,
 
 	GetReleaseTargetComponent: (self: WorldWrapper) -> ReleaseTargetComponent,
+
+	GetBuildingModeComponent: (self: WorldWrapper) -> BuildingModeComponent,
+	GetWantsToToggleBuildingModeComponent: (self: WorldWrapper) -> WantsToToggleBuildingModeComponent,
+	GetBuildingMovableComponent: (self: WorldWrapper) -> BuildingMovableComponent,
+	GetBuildingLockComponent: (self: WorldWrapper) -> BuildingLockComponent,
+	GetBuildingMoveStateComponent: (self: WorldWrapper) -> BuildingMoveStateComponent,
+	GetBuildingGhostTargetComponent: (self: WorldWrapper) -> BuildingGhostTargetComponent,
 
 	-- lookup
 	FindPlayer: (self: WorldWrapper, playerId: jecs.Entity<nil>) -> Types.PlayerView?,
@@ -106,6 +144,30 @@ end
 
 function WorldWrapper:GetReleaseTargetComponent(): ReleaseTargetComponent
 	return releaseTargetComponent
+end
+
+function WorldWrapper:GetBuildingModeComponent(): BuildingModeComponent
+	return buildingModeComponent
+end
+
+function WorldWrapper:GetWantsToToggleBuildingModeComponent(): WantsToToggleBuildingModeComponent
+	return wantsToToggleBuildingModeComponent
+end
+
+function WorldWrapper:GetBuildingMovableComponent(): BuildingMovableComponent
+	return buildingMovableComponent
+end
+
+function WorldWrapper:GetBuildingLockComponent(): BuildingLockComponent
+	return buildingLockComponent
+end
+
+function WorldWrapper:GetBuildingMoveStateComponent(): BuildingMoveStateComponent
+	return buildingMoveStateComponent
+end
+
+function WorldWrapper:GetBuildingGhostTargetComponent(): BuildingGhostTargetComponent
+	return buildingGhostTargetComponent
 end
 
 function WorldWrapper:FindPlayer(playerId: jecs.Entity<nil>): Types.PlayerView?

@@ -97,6 +97,7 @@ function IngredientFurnitureFactory:DefineFurniture(form: IngredientFurnitureFor
 		local entity = WorldWrapper:RegisterInstance(instance, form.FurnitureName)
 		world:set(entity, furnitureComponent)
 		world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
+		world:set(entity, WorldWrapper:GetBuildingMovableComponent())
 
 		return entity, instance
 	end

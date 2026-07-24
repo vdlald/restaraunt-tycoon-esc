@@ -27,6 +27,7 @@ function CreateKitchenTable(): (jecs.Entity<nil>, Instance)
 
 	local entity = WorldWrapper:RegisterInstance(instance, "KitchenTable")
 	world:set(entity, kitchenTableComponent)
+	world:set(entity, WorldWrapper:GetBuildingMovableComponent())
 
 	return entity, instance, placeHolderEntity
 end

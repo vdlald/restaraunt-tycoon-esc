@@ -19,6 +19,42 @@ local Net = ByteNet.defineNamespace("Game", function()
 				coins = ByteNet.int32,
 			}),
 		}),
+
+		-- Режим строительства
+		buildingModeToggle = ByteNet.definePacket({
+			value = ByteNet.struct({
+				enabled = ByteNet.bool,
+			}),
+		}),
+
+		buildingModeCancelMove = ByteNet.definePacket({
+			value = ByteNet.struct({}),
+		}),
+
+		buildingGhostMove = ByteNet.definePacket({
+			value = ByteNet.struct({
+				position = ByteNet.vec3,
+			}),
+		}),
+
+		buildingGhostRotate = ByteNet.definePacket({
+			value = ByteNet.struct({
+				deltaYaw = ByteNet.float32,
+			}),
+		}),
+
+		buildingModeState = ByteNet.definePacket({
+			value = ByteNet.struct({
+				enabled = ByteNet.bool,
+				movingEntity = ByteNet.int32,
+			}),
+		}),
+
+		buildingPlacementResult = ByteNet.definePacket({
+			value = ByteNet.struct({
+				success = ByteNet.bool,
+			}),
+		}),
 	}
 end)
 

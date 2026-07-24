@@ -29,6 +29,7 @@ function CreateTrashcan(): (jecs.Entity<nil>, Instance)
 	local entity = WorldWrapper:RegisterInstance(instance, "Trashcan")
 	world:set(entity, TrashcanComponent)
 	world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
+	world:set(entity, WorldWrapper:GetBuildingMovableComponent())
 
 	return entity, instance
 end

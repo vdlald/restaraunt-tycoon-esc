@@ -21,6 +21,7 @@ function CreateChair(): (jecs.Entity<nil>, Instance)
 	local instance: Instance = ServerStorage.Furniture.Chair:Clone()
 	local entity = WorldWrapper:RegisterInstance(instance, "Chair")
 	world:set(entity, ChairComponent)
+	world:set(entity, WorldWrapper:GetBuildingMovableComponent())
 
 	return entity, instance
 end
