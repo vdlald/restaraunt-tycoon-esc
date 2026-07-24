@@ -36,6 +36,14 @@ local wantsToInteractComponent = world:component() :: WantsToInteractComponent
 export type PlayerInteractComponent = jecs.Id<{ PlayerView: Types.PlayerView, KeyCode: Enum.KeyCode }>
 local playerInteractComponent = world:component() :: PlayerInteractComponent
 
+-- Игрок удерживает кнопку обработки ингредиента
+export type IngredientProcessingComponent = jecs.Id<{ Target: jecs.Entity<nil> }>
+local ingredientProcessingComponent = world:component() :: IngredientProcessingComponent
+
+-- Накопленный прогресс превращения ингредиента
+export type IngredientProgressComponent = jecs.Id<{ Elapsed: number, ParticipantCount: number }>
+local ingredientProgressComponent = world:component() :: IngredientProgressComponent
+
 -- ReplaceTarget
 export type ReplaceTargetComponent = jecs.Id<{ NewTarget: jecs.Entity<nil> }>
 local replaceTargetComponent = world:component() :: ReplaceTargetComponent
@@ -86,6 +94,8 @@ export type WorldWrapper = {
 	GetInstanceComponent: (self: WorldWrapper) -> InstanceComponent,
 
 	GetPlayerInteractComponent: (self: WorldWrapper) -> PlayerInteractComponent,
+	GetIngredientProcessingComponent: (self: WorldWrapper) -> IngredientProcessingComponent,
+	GetIngredientProgressComponent: (self: WorldWrapper) -> IngredientProgressComponent,
 	GetWantsToInteractComponent: (self: WorldWrapper) -> WantsToInteractComponent,
 
 	GetPlayerInteractableComponent: (self: WorldWrapper) -> PlayerInteractableComponent,
@@ -128,6 +138,14 @@ end
 
 function WorldWrapper:GetPlayerInteractComponent(): PlayerInteractComponent
 	return playerInteractComponent
+end
+
+function WorldWrapper:GetIngredientProcessingComponent(): IngredientProcessingComponent
+	return ingredientProcessingComponent
+end
+
+function WorldWrapper:GetIngredientProgressComponent(): IngredientProgressComponent
+	return ingredientProgressComponent
 end
 
 function WorldWrapper:GetWantsToInteractComponent(): WantsToInteractComponent

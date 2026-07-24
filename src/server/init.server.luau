@@ -5,6 +5,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local DataManager = require(ServerScriptService.Server.Player.DataManager) -- грузим первым DataManager
 local Types = require(ServerScriptService.Server.Types)
 local ObjectPool = require(ServerScriptService.Server.ObjectPool)
+local IngredientFactory = require(ServerScriptService.Server.Game.Ingredient.IngredientFactory)
 
 local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
@@ -36,6 +37,7 @@ Players.PlayerRemoving:Connect(function(player)
 
 	BuildingSystem:CancelMove(playerId)
 	world:remove(playerId, WorldWrapper:GetBuildingModeComponent())
+	world:remove(playerId, WorldWrapper:GetIngredientProcessingComponent())
 end)
 
 --
@@ -113,6 +115,50 @@ Net.playerInteract.listen(function(data: table, player: Player)
 
 	-- game specific validations
 	world:set(playerId, WorldWrapper:GetWantsToInteractComponent(), { Target = entityId, KeyCode = keyCode })
+end)
+
+Net.ingredientProcessStart.listen(function(data: table, player: Player)
+	local entityId: number = data.entityId
+	if not GameCycle:CanInteract() or not world:contains(entityId) then
+		return
+	end
+
+	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
+	if not playerId then
+		return
+	end
+
+	if
+		not world:has(entityId, IngredientFactory:GetProcessableIngredientComponent())
+		or not world:has(entityId, WorldWrapper:GetPlayerInteractableComponent())
+		or ObjectPool:IsPooled(entityId)
+	then
+		return
+	end
+
+	local playerView: Types.PlayerView? = WorldWrapper:FindPlayer(playerId)
+	local instance = WorldWrapper:FindInstance(entityId)
+	if not playerView or not instance or instance.Parent == nil then
+		return
+	end
+
+	local ok, distance = pcall(function()
+		return playerView:GetDistance(instance)
+	end)
+	if not ok or distance > Consts.InteractablePlayerDistance + 4 then
+		return
+	end
+
+	world:set(playerId, WorldWrapper:GetIngredientProcessingComponent(), { Target = entityId })
+end)
+
+Net.ingredientProcessStop.listen(function(_: table, player: Player)
+	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
+	if not playerId then
+		return
+	end
+
+	world:remove(playerId, WorldWrapper:GetIngredientProcessingComponent())
 end)
 
 -- Режим строительства

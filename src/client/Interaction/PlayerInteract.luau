@@ -14,6 +14,16 @@ local Consts = require(ReplicatedStorage.Shared.Consts)
 -- Взаимодействие с миром
 local UserInputService = game:GetService("UserInputService")
 
+local activeIngredientProcessEntity: number? = nil
+
+local function stopIngredientProcess()
+	if not activeIngredientProcessEntity then
+		return
+	end
+	NetClient:StopIngredientProcess()
+	activeIngredientProcessEntity = nil
+end
+
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
@@ -32,6 +42,14 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if not part then
 		return
 	end
+	if input.KeyCode == Enum.KeyCode.F then
+		local entityId = part:GetAttribute(Consts.Attributes.EntityId)
+		if entityId then
+			activeIngredientProcessEntity = entityId
+			NetClient:StartIngredientProcess(entityId)
+		end
+		return
+	end
 
 	if Consts.InteractableAllowedKeys[input.KeyCode] then
 		local entityId = part:GetAttribute(Consts.Attributes.EntityId)
@@ -39,6 +57,20 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 			return
 		end
 		NetClient:PlayerInteract(entityId, input.KeyCode)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.F then
+		stopIngredientProcess()
+	end
+end)
+
+UserInputService.WindowFocusReleased:Connect(stopIngredientProcess)
+
+State.IsInBuildingMode:on(function(isInBuildingMode: boolean)
+	if isInBuildingMode then
+		stopIngredientProcess()
 	end
 end)
 

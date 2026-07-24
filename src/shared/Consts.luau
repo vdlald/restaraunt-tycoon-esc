@@ -1,5 +1,7 @@
 local Consts = {
 	InteractablePlayerDistance = 4,
+	IngredientProcessDurationSeconds = 3,
+	IngredientProcessStateInterval = 0.1,
 	InteractableAllowedKeys = {
 		[Enum.KeyCode.E] = true,
 		[Enum.KeyCode.F] = true,
@@ -15,7 +17,7 @@ local Consts = {
 		Interactable = "Interactable",
 		BuildZone = "BuildZone",
 		BuildingGhost = "BuildingGhost",
-		BuildingMoveable = "BuildingMoveable"
+		BuildingMoveable = "BuildingMoveable",
 	},
 
 	BuildingMaxCarryDistance = 20,

@@ -12,6 +12,16 @@ function NetClient:PlayerInteract(entityId: number, keyCode: Enum.KeyCode)
 	})
 end
 
+function NetClient:StartIngredientProcess(entityId: number)
+	Net.ingredientProcessStart.send({
+		entityId = entityId,
+	})
+end
+
+function NetClient:StopIngredientProcess()
+	Net.ingredientProcessStop.send({})
+end
+
 function NetClient:ToggleBuildingMode(enabled: boolean)
 	Net.buildingModeToggle.send({
 		enabled = enabled,

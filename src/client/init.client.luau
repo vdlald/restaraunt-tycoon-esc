@@ -5,6 +5,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 require(StarterPlayer.StarterPlayerScripts.Client.UI.UI)
 require(StarterPlayer.StarterPlayerScripts.Client.BuildingClient)
 require(StarterPlayer.StarterPlayerScripts.Client.Interaction.PlayerInteract)
+require(StarterPlayer.StarterPlayerScripts.Client.Interaction.IngredientProcessIndicator)
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer

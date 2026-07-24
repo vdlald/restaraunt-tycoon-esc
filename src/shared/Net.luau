@@ -13,6 +13,25 @@ local Net = ByteNet.defineNamespace("Game", function()
 			}),
 		}),
 
+		ingredientProcessStart = ByteNet.definePacket({
+			value = ByteNet.struct({
+				entityId = ByteNet.int32,
+			}),
+		}),
+
+		ingredientProcessStop = ByteNet.definePacket({
+			value = ByteNet.struct({}),
+		}),
+
+		ingredientProcessState = ByteNet.definePacket({
+			value = ByteNet.struct({
+				entityId = ByteNet.int32,
+				progress = ByteNet.float32,
+				participantCount = ByteNet.uint8,
+				active = ByteNet.bool,
+			}),
+		}),
+
 		-- Обновление данных пользователя
 		playerDataUpdate = ByteNet.definePacket({
 			value = ByteNet.struct({

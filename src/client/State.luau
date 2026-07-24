@@ -17,6 +17,11 @@ export type DayReceipt = {
 	total: number,
 }
 
+export type IngredientProcessState = {
+	progress: number,
+	participantCount: number,
+}
+
 local State = {
 	Coins = Val.new(0),
 	IsInBuildingMode = Val.new(false),
@@ -27,6 +32,7 @@ local State = {
 	GuestsRemaining = Val.new(0),
 	ServiceTimeRemaining = Val.new(0),
 	DayReceipt = Val.new(nil :: DayReceipt?),
+	IngredientProcessStates = Val.new({} :: { [number]: IngredientProcessState }),
 }
 
 Net.playerDataUpdate.listen(function(data)
@@ -64,6 +70,19 @@ Net.buildingPlacementResult.listen(function(data)
 	else
 		print("[Building] placement failed")
 	end
+end)
+
+Net.ingredientProcessState.listen(function(data)
+	local states = table.clone(State.IngredientProcessStates:get())
+	if data.active then
+		states[data.entityId] = {
+			progress = data.progress,
+			participantCount = data.participantCount,
+		}
+	else
+		states[data.entityId] = nil
+	end
+	State.IngredientProcessStates:set(states)
 end)
 
 return State
