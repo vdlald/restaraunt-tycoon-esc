@@ -8,15 +8,27 @@ local ObjectPool = require(ServerScriptService.Server.ObjectPool)
 
 local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
+local BuildingSystem = require(ServerScriptService.Server.Systems.BuildingSystem)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Consts = require(ReplicatedStorage.Shared.Consts)
+local CollectionService = game:GetService("CollectionService")
 
 --
 -- Login
 local Players = game:GetService("Players")
 Players.PlayerAdded:Connect(function(player)
 	WorldWrapper:RegisterPlayer(player)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
+	if not playerId then
+		return
+	end
+
+	BuildingSystem:CancelMove(playerId)
+	world:remove(playerId, WorldWrapper:GetBuildingModeComponent())
 end)
 
 --
@@ -74,12 +86,67 @@ Net.playerInteract.listen(function(data: table, player: Player)
 
 	local distance = playerView:GetDistance(instance)
 	if distance > Consts.InteractablePlayerDistance + 4 then
-		warn("suspicious player interaction, too far: userId=" .. player.UserId .. ", distance=" .. distance)
-		return
+		-- Разрешаем превышение дистанции только при установке фурнитуры, которую игрок уже перемещает
+		local isPlacing = keyCode == Enum.KeyCode.E
+			and world:has(entityId, WorldWrapper:GetBuildingLockComponent())
+			and world:get(entityId, WorldWrapper:GetBuildingLockComponent()).OwnerPlayerEntity == playerId
+
+		if not isPlacing then
+			warn("suspicious player interaction, too far: userId=" .. player.UserId .. ", distance=" .. distance)
+			return
+		end
 	end
 
 	-- game specific validations
 	world:set(playerId, WorldWrapper:GetWantsToInteractComponent(), { Target = entityId, KeyCode = keyCode })
+end)
+
+-- Режим строительства
+Net.buildingModeToggle.listen(function(data: table, player: Player)
+	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
+	if not playerId then
+		return
+	end
+
+	world:set(playerId, WorldWrapper:GetWantsToToggleBuildingModeComponent(), { Enabled = data.enabled })
+end)
+
+Net.buildingModeCancelMove.listen(function(_: table, player: Player)
+	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
+	if not playerId then
+		return
+	end
+
+	BuildingSystem:CancelMove(playerId)
+
+	local enabled = world:has(playerId, WorldWrapper:GetBuildingModeComponent())
+	Net.buildingModeState.sendTo({ enabled = enabled, movingEntity = 0 }, player)
+end)
+
+Net.buildingGhostMove.listen(function(data: table, player: Player)
+	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
+	if not playerId then
+		return
+	end
+
+	if not world:has(playerId, WorldWrapper:GetBuildingMoveStateComponent()) then
+		return
+	end
+
+	world:set(playerId, WorldWrapper:GetBuildingGhostTargetComponent(), { Position = data.position })
+end)
+
+Net.buildingGhostRotate.listen(function(data: table, player: Player)
+	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
+	if not playerId then
+		return
+	end
+
+	if not world:has(playerId, WorldWrapper:GetBuildingMoveStateComponent()) then
+		return
+	end
+
+	BuildingSystem:RequestRotation(playerId, data.deltaYaw)
 end)
 
 -- Синхронизируем изменения данных пользователя
@@ -120,6 +187,7 @@ local Trashcan = require(ServerScriptService.Server.Game.Furniture.Trashcan)
 RunService.Heartbeat:Connect(function(deltaTime)
 	-- start phase
 	PlayerInteractSystem:Process(deltaTime)
+	BuildingSystem:Process(deltaTime)
 
 	-- NPC
 	GuestNpc.System:Process(deltaTime)
@@ -189,3 +257,16 @@ PlaceHolder.System:Place(platePH2, plateEntity3)
 -- Npc
 local guestEntity, guestInstance = GuestNpc.Create()
 guestInstance.Parent = workspace
+
+-- BuildZone fallback: если в мире нет зоны строительства, создаём большую невидимую площадку
+if #CollectionService:GetTagged(Consts.Tags.BuildZone) == 0 then
+	local buildZone = Instance.new("Part")
+	buildZone.Name = "BuildZone"
+	buildZone.Size = Vector3.new(200, 1, 200)
+	buildZone.Position = Vector3.new(0, -0.5, 0)
+	buildZone.Anchored = true
+	buildZone.CanCollide = true
+	buildZone.Transparency = 1
+	buildZone:AddTag(Consts.Tags.BuildZone)
+	buildZone.Parent = workspace
+end

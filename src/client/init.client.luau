@@ -2,8 +2,10 @@
 
 -- Зависимости
 local StarterPlayer = game:GetService("StarterPlayer")
-local UI = require(StarterPlayer.StarterPlayerScripts.Client.ui.UI)
+require(StarterPlayer.StarterPlayerScripts.Client.ui.UI)
 local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
+local State = require(StarterPlayer.StarterPlayerScripts.Client.State)
+require(StarterPlayer.StarterPlayerScripts.Client.BuildingClient)
 
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -55,6 +57,11 @@ end
 -- Взаимодействие с миром
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
+		return
+	end
+
+	-- В режиме перемещения фурнитуры E управляется BuildingClient (установка)
+	if State.IsInBuildingMode:get() and State.MovingFurnitureEntity:get() ~= 0 then
 		return
 	end
 
