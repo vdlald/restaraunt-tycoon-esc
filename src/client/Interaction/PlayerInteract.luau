@@ -18,6 +18,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
+	if input.KeyCode == Enum.KeyCode.P then
+		NetClient:RequestGamePhaseToggle()
+		return
+	end
 
 	-- В режиме перемещения фурнитуры E управляется BuildingClient (установка)
 	if State.IsInBuildingMode:get() and State.MovingFurnitureEntity:get() ~= 0 then

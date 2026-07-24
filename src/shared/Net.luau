@@ -55,6 +55,20 @@ local Net = ByteNet.defineNamespace("Game", function()
 				success = ByteNet.bool,
 			}),
 		}),
+
+		gamePhaseToggle = ByteNet.definePacket({
+			value = ByteNet.struct({}),
+		}),
+
+		gameCycleState = ByteNet.definePacket({
+			value = ByteNet.struct({
+				phase = ByteNet.uint8,
+				day = ByteNet.uint8,
+				countdownSeconds = ByteNet.uint8,
+				guestsRemaining = ByteNet.uint8,
+				serviceSecondsRemaining = ByteNet.uint16,
+			}),
+		}),
 	}
 end)
 

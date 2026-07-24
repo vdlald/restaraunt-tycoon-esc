@@ -34,4 +34,8 @@ function NetClient:BuildingGhostRotate(deltaYaw: number)
 	})
 end
 
+function NetClient:RequestGamePhaseToggle()
+	Net.gamePhaseToggle.send({})
+end
+
 return NetClient

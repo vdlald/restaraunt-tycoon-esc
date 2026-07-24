@@ -194,6 +194,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	local keyCode = input.KeyCode
 
 	if keyCode == Enum.KeyCode.B then
+		if State.GamePhase:get() ~= 1 then
+			return
+		end
 		NetClient:ToggleBuildingMode(not State.IsInBuildingMode:get())
 		return
 	end

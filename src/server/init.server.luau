@@ -9,6 +9,7 @@ local ObjectPool = require(ServerScriptService.Server.ObjectPool)
 local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
 local BuildingSystem = require(ServerScriptService.Server.Systems.BuildingSystem)
+local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Consts = require(ReplicatedStorage.Shared.Consts)
@@ -18,6 +19,7 @@ local Consts = require(ReplicatedStorage.Shared.Consts)
 local Players = game:GetService("Players")
 Players.PlayerAdded:Connect(function(player)
 	WorldWrapper:RegisterPlayer(player)
+	GameCycle:SendState(player)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
@@ -54,6 +56,10 @@ Net.playerInteract.listen(function(data: table, player: Player)
 	local playerView: Types.PlayerView? = WorldWrapper:FindPlayer(playerId)
 	if not playerView then
 		error("unknown userId=" .. player.UserId)
+		return
+	end
+
+	if not GameCycle:CanInteract() then
 		return
 	end
 
@@ -105,6 +111,9 @@ end)
 
 -- Режим строительства
 Net.buildingModeToggle.listen(function(data: table, player: Player)
+	if not GameCycle:CanBuild() then
+		return
+	end
 	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
 	if not playerId then
 		return
@@ -126,6 +135,9 @@ Net.buildingModeCancelMove.listen(function(_: table, player: Player)
 end)
 
 Net.buildingGhostMove.listen(function(data: table, player: Player)
+	if not GameCycle:CanBuild() then
+		return
+	end
 	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
 	if not playerId then
 		return
@@ -135,6 +147,9 @@ Net.buildingGhostMove.listen(function(data: table, player: Player)
 end)
 
 Net.buildingGhostRotate.listen(function(data: table, player: Player)
+	if not GameCycle:CanBuild() then
+		return
+	end
 	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
 	if not playerId then
 		return
@@ -145,6 +160,10 @@ Net.buildingGhostRotate.listen(function(data: table, player: Player)
 	end
 
 	BuildingSystem:RequestRotation(playerId, data.deltaYaw)
+end)
+
+Net.gamePhaseToggle.listen(function(_: table, player: Player)
+	GameCycle:RequestPhaseToggle(player)
 end)
 
 -- Синхронизируем изменения данных пользователя
@@ -175,14 +194,12 @@ local MinceMeat = require(ServerScriptService.Server.Game.Ingredient.MinceMeat)
 
 local Pie = require(ServerScriptService.Server.Game.Dish.Pie)
 
-local Plate = require(ServerScriptService.Server.Game.Items.Plate)
-
 local FlourBag = require(ServerScriptService.Server.Game.Furniture.FlourBag)
 local MeatSteakFridge = require(ServerScriptService.Server.Game.Furniture.MeatSteakFridge)
-local KitchenTable = require(ServerScriptService.Server.Game.Furniture.KitchenTable)
 local Trashcan = require(ServerScriptService.Server.Game.Furniture.Trashcan)
 
 RunService.Heartbeat:Connect(function(deltaTime)
+	GameCycle:Process(deltaTime)
 	-- start phase
 	PlayerInteractSystem:Process(deltaTime)
 	BuildingSystem:Process(deltaTime)
@@ -212,46 +229,3 @@ RunService.Heartbeat:Connect(function(deltaTime)
 	-- clear
 	PlayerInteractSystem:Clear()
 end)
-
---
--- Инициализация мира
-local _, trashcanInstance = Trashcan.Create()
-trashcanInstance.Parent = workspace
-trashcanInstance:SetPrimaryPartCFrame(CFrame.new(Vector3.new(10, 1.5, 3)))
-
-local _, flourBagInstance = FlourBag.Create()
-flourBagInstance.Parent = workspace
-flourBagInstance:SetPrimaryPartCFrame(CFrame.new(Vector3.new(4, 1.5, 3)))
-
-local _, fridgeInstance = MeatSteakFridge.Create()
-fridgeInstance.Parent = workspace
-fridgeInstance:SetPrimaryPartCFrame(CFrame.new(Vector3.new(7, 2.5, 0)))
-
-local _, kitchenTableInstance1, _ = KitchenTable.Create()
-kitchenTableInstance1.Parent = workspace
-kitchenTableInstance1:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-6, 1.5, -3)))
-
-local _, kitchenTableInstance2, _ = KitchenTable.Create()
-kitchenTableInstance2.Parent = workspace
-kitchenTableInstance2:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-1, 1.5, -3)))
-
-local _, kitchenTableInstance3, placeHolderEntity3 = KitchenTable.Create()
-kitchenTableInstance3.Parent = workspace
-kitchenTableInstance3:SetPrimaryPartCFrame(CFrame.new(Vector3.new(6, 1.5, -3)))
-
--- Тарелки
-local plateEntity1, plateInstance1, platePH1 = Plate.Create()
-plateInstance1.Parent = workspace
-PlaceHolder.System:Place(placeHolderEntity3, plateEntity1)
-
-local plateEntity2, plateInstance2, platePH2 = Plate.Create()
-plateInstance2.Parent = workspace
-PlaceHolder.System:Place(platePH1, plateEntity2)
-
-local plateEntity3, plateInstance3, platePH3 = Plate.Create()
-plateInstance3.Parent = workspace
-PlaceHolder.System:Place(platePH2, plateEntity3)
-
--- Npc
-local guestEntity, guestInstance = GuestNpc.Create()
-guestInstance.Parent = workspace

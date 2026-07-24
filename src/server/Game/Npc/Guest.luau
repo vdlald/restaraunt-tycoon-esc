@@ -21,6 +21,10 @@ local world = WorldWrapper:GetWorld()
 export type GuestNpcComponent = jecs.Id<nil>
 local GuestNpcComponent = world:component() :: GuestNpcComponent
 
+local onFed: (Player, jecs.Entity<nil>) -> boolean = function(_: Player, _: jecs.Entity<nil>)
+	return false
+end
+
 --
 -- Объявление сущности
 function CreateGuestNpc(): (jecs.Entity<nil>, Instance)
@@ -62,7 +66,7 @@ end
 
 local DishFactory = require(ServerScriptService.Server.Game.Dish.DishFactory)
 
-function System:processPlayerInteract(_: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
+function System:processPlayerInteract(entityId: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
 	if keyCode ~= Enum.KeyCode.E then
 		return
 	end
@@ -73,6 +77,9 @@ function System:processPlayerInteract(_: jecs.Entity<nil>, playerView: Types.Pla
 	end
 
 	if not world:has(equippedTool, DishFactory:GetAbstractDishComponent()) then
+		return
+	end
+	if not onFed(playerView:GetPlayer(), entityId) then
 		return
 	end
 	world:set(equippedTool, WorldWrapper:GetReleaseTargetComponent())
@@ -89,4 +96,7 @@ return {
 	Create = CreateGuestNpc,
 	Component = GuestNpcComponent,
 	System = System.new(),
+	SetFedHandler = function(handler: (Player, jecs.Entity<nil>) -> boolean)
+		onFed = handler
+	end,
 }
