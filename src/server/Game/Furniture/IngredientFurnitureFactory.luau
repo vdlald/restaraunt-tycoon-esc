@@ -93,6 +93,7 @@ function IngredientFurnitureFactory:DefineFurniture(form: IngredientFurnitureFor
 	module.Create = function(): (jecs.Entity<nil>, Instance)
 		local instance: Instance = form.Template:Clone()
 		instance:AddTag(Consts.Tags.Interactable)
+		instance:AddTag(Consts.Tags.BuildingMoveable)
 
 		local entity = WorldWrapper:RegisterInstance(instance, form.FurnitureName)
 		world:set(entity, furnitureComponent)

@@ -2,8 +2,8 @@
 
 -- Зависимости
 local StarterPlayer = game:GetService("StarterPlayer")
-local MoneyCounter = require(StarterPlayer.StarterPlayerScripts.Client.ui.MoneyCounter)
-local BuildingModeIndicator = require(StarterPlayer.StarterPlayerScripts.Client.ui.BuildingModeIndicator)
+local MoneyCounter = require(StarterPlayer.StarterPlayerScripts.Client.UI.MoneyCounter)
+local BuildingModeIndicator = require(StarterPlayer.StarterPlayerScripts.Client.UI.BuildingModeIndicator)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Packages.React)

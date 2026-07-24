@@ -63,7 +63,10 @@ Net.playerInteract.listen(function(data: table, player: Player)
 		return
 	end
 
-	if not world:has(entityId, WorldWrapper:GetPlayerInteractableComponent()) then
+	if
+		not world:has(entityId, WorldWrapper:GetPlayerInteractableComponent())
+		and not world:has(entityId, WorldWrapper:GetBuildingMovableComponent())
+	then
 		warn("suspicious player interaction, not interactable view: userId=" .. player.UserId)
 		return
 	end

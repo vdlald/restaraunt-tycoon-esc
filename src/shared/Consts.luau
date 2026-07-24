@@ -15,6 +15,7 @@ local Consts = {
 		Interactable = "Interactable",
 		BuildZone = "BuildZone",
 		BuildingGhost = "BuildingGhost",
+		BuildingMoveable = "BuildingMoveable"
 	},
 
 	BuildingMaxCarryDistance = 20,
