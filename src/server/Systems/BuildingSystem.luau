@@ -356,7 +356,14 @@ function BuildingSystem:attemptPlace(
 		return
 	end
 
-	local validation = BuildingValidation.ValidateModelPlacement(ghost, ghostCFrame)
+	-- Валидируем footprint на уровне пола, а не центр модели (у фурнитуры может быть большой FloorOffset)
+	local floorLevelPosition = Vector3.new(
+		ghostCFrame.Position.X,
+		ghostCFrame.Position.Y - moveState.FloorOffset,
+		ghostCFrame.Position.Z
+	)
+	local floorLevelCFrame = CFrame.new(floorLevelPosition) * ghostCFrame.Rotation
+	local validation = BuildingValidation.ValidateModelPlacement(ghost, floorLevelCFrame)
 	if not validation.IsValid then
 		Net.buildingPlacementResult.sendTo({ success = false }, playerView:GetPlayer())
 		return

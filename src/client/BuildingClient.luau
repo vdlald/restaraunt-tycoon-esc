@@ -67,10 +67,11 @@ local function attachHighlight(ghost: Model)
 	end
 
 	ghostHighlight = Instance.new("Highlight")
-	ghostHighlight.FillTransparency = 0.6
-	ghostHighlight.OutlineTransparency = 0.2
+	ghostHighlight.FillTransparency = 0.3
+	ghostHighlight.OutlineTransparency = 0
 	ghostHighlight.OutlineColor = Color3.fromRGB(255, 255, 255)
 	ghostHighlight.FillColor = Color3.fromRGB(0, 255, 0)
+	ghostHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	ghostHighlight.Adornee = ghost
 	ghostHighlight.Parent = ghost
 end
@@ -93,6 +94,8 @@ local function onMovingEntityChanged(entityId: number)
 		local ghost = getLocalGhost()
 		if ghost then
 			attachHighlight(ghost)
+		else
+			warn("[BuildingClient] ghost not found for mover " .. tostring(player.UserId))
 		end
 	end)
 end
