@@ -107,6 +107,21 @@ function GameCycle:DisableBuildingForPlayers()
 	end
 end
 
+function GameCycle:SetFurnitureAnchored(anchored: boolean)
+	for furnitureEntity in world:query(WorldWrapper:GetBuildingMovableComponent()) do
+		local furniture = WorldWrapper:FindInstance(furnitureEntity)
+		if furniture then
+			local parts = furniture:GetDescendants()
+			table.insert(parts, furniture)
+			for _, part in parts do
+				if part:IsA("BasePart") then
+					part.Anchored = anchored
+				end
+			end
+		end
+	end
+end
+
 function GameCycle:ClearScene()
 	self:DisableBuildingForPlayers()
 	for _, player in Players:GetPlayers() do
@@ -212,11 +227,13 @@ function GameCycle:EnterPreparation()
 		self:CreateStarterScene()
 		self.hasStarterScene = true
 	end
+	self:SetFurnitureAnchored(false)
 	self:BroadcastState()
 end
 
 function GameCycle:EnterService()
 	self:DisableBuildingForPlayers()
+	self:SetFurnitureAnchored(true)
 	self.phase = self.Phase.Service
 	self.countdownSeconds = 0
 	self.countdownTarget = nil
