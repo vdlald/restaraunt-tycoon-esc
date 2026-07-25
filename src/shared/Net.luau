@@ -93,6 +93,10 @@ local Net = ByteNet.defineNamespace("Game", function()
 			value = ByteNet.struct({}),
 		}),
 
+		endMatchRequest = ByteNet.definePacket({
+			value = ByteNet.struct({}),
+		}),
+
 		gameCycleState = ByteNet.definePacket({
 			value = ByteNet.struct({
 				phase = ByteNet.uint8,
@@ -101,6 +105,7 @@ local Net = ByteNet.defineNamespace("Game", function()
 				guestsRemaining = ByteNet.uint8,
 				serviceSecondsRemaining = ByteNet.uint16,
 				cash = ByteNet.int32,
+				canEndMatch = ByteNet.bool,
 			}),
 		}),
 

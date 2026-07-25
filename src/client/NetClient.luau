@@ -48,6 +48,10 @@ function NetClient:RequestGamePhaseToggle()
 	Net.gamePhaseToggle.send({})
 end
 
+function NetClient:RequestEndMatch()
+	Net.endMatchRequest.send({})
+end
+
 function NetClient:RequestFurniturePurchase(furnitureId: string)
 	Net.furniturePurchaseRequest.send({
 		furnitureId = furnitureId,

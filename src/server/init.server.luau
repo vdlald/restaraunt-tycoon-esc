@@ -227,6 +227,10 @@ Net.gamePhaseToggle.listen(function(_: table, player: Player)
 	GameCycle:RequestPhaseToggle(player)
 end)
 
+Net.endMatchRequest.listen(function(_: table, player: Player)
+	GameCycle:RequestEndMatch(player)
+end)
+
 -- Синхронизируем изменения данных пользователя
 DataManager:OnProfileDataChanged(function(event: DataManager.PlayerDataChangedEvent)
 	local player = event.Player

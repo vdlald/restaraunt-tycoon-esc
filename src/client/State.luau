@@ -34,6 +34,7 @@ local State = {
 	IsInBuildingMode = Val.new(false),
 	MovingFurnitureEntity = Val.new(0),
 	GamePhase = Val.new(GamePhase.Lobby),
+	CanEndMatch = Val.new(false),
 	GameDay = Val.new(1),
 	PhaseCountdown = Val.new(0),
 	GuestsRemaining = Val.new(0),
@@ -55,6 +56,7 @@ end)
 
 Net.gameCycleState.listen(function(data)
 	State.GamePhase:set(data.phase)
+	State.CanEndMatch:set(data.canEndMatch)
 	State.GameDay:set(data.day)
 	State.PhaseCountdown:set(data.countdownSeconds)
 	State.GuestsRemaining:set(data.guestsRemaining)

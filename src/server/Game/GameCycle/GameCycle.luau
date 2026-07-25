@@ -31,6 +31,7 @@ export type GameCycleState = {
 	guestsRemaining: number,
 	serviceSecondsRemaining: number,
 	cash: number,
+	canEndMatch: boolean,
 }
 
 export type ReceiptDish = {
@@ -89,7 +90,7 @@ function GameCycle:GetDayProgression(day: number): (number, number)
 	return guests, 30 + 10 * guests
 end
 
-function GameCycle:GetState(): GameCycleState
+function GameCycle:GetState(player: Player?): GameCycleState
 	return {
 		phase = self.phase,
 		day = self.day,
@@ -97,6 +98,9 @@ function GameCycle:GetState(): GameCycleState
 		guestsRemaining = self.guestsRemaining,
 		serviceSecondsRemaining = math.max(0, math.ceil(self.serviceSecondsRemaining)),
 		cash = self.cash,
+		canEndMatch = player ~= nil
+			and player == self.owner
+			and (self.phase == self.Phase.Preparation or self.phase == self.Phase.Service),
 	}
 end
 
@@ -216,12 +220,13 @@ function GameCycle:OnPlayerRemoving(player: Player)
 end
 
 function GameCycle:BroadcastState()
-	local state = self:GetState()
-	Net.gameCycleState.sendToAll(state)
+	for _, player in Players:GetPlayers() do
+		self:SendState(player)
+	end
 end
 
 function GameCycle:SendState(player: Player)
-	local state = self:GetState()
+	local state = self:GetState(player)
 	Net.gameCycleState.sendTo(state, player)
 end
 
@@ -471,6 +476,16 @@ function GameCycle:RequestPhaseToggle(player: Player)
 
 	self.countdownSeconds = self.CountdownDuration
 	self:BroadcastState()
+end
+
+function GameCycle:RequestEndMatch(player: Player)
+	if player ~= self.owner then
+		return
+	end
+	if self.phase ~= self.Phase.Preparation and self.phase ~= self.Phase.Service then
+		return
+	end
+	self:EnterResult(self.Phase.Defeat)
 end
 
 function GameCycle:OnGuestFed(player: Player, _: number, dishEntity: number): number?

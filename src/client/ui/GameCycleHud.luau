@@ -3,6 +3,7 @@
 local StarterPlayer = game:GetService("StarterPlayer")
 local UserInputService = game:GetService("UserInputService")
 local State = require(StarterPlayer.StarterPlayerScripts.Client.State)
+local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Packages.React)
@@ -21,16 +22,19 @@ local phaseNames = {
 
 local function GameCycleHud()
 	local phase, setPhase = useState(State.GamePhase:get())
+	local canEndMatch, setCanEndMatch = useState(State.CanEndMatch:get())
 	local day, setDay = useState(State.GameDay:get())
 	local countdown, setCountdown = useState(State.PhaseCountdown:get())
 	local guests, setGuests = useState(State.GuestsRemaining:get())
 	local serviceTime, setServiceTime = useState(State.ServiceTimeRemaining:get())
 	local receipt, setReceipt = useState(State.DayReceipt:get())
 	local receiptClosed, setReceiptClosed = useState(false)
+	local endMatchConfirmationOpen, setEndMatchConfirmationOpen = useState(false)
 
 	useEffect(function()
 		local disconnects = {
 			State.GamePhase:on(setPhase),
+			State.CanEndMatch:on(setCanEndMatch),
 			State.GameDay:on(setDay),
 			State.PhaseCountdown:on(setCountdown),
 			State.GuestsRemaining:on(setGuests),
@@ -61,6 +65,27 @@ local function GameCycleHud()
 			connection:Disconnect()
 		end
 	end, { phase, receipt, receiptClosed })
+
+	useEffect(function()
+		if not canEndMatch then
+			setEndMatchConfirmationOpen(false)
+		end
+	end, { canEndMatch })
+
+	useEffect(function()
+		if not canEndMatch then
+			return function() end
+		end
+
+		local connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+			if not gameProcessed and input.KeyCode == Enum.KeyCode.X then
+				setEndMatchConfirmationOpen(true)
+			end
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end, { canEndMatch })
 
 	local children = {
 		Phase = React.createElement("TextLabel", {
@@ -97,6 +122,23 @@ local function GameCycleHud()
 			Font = Enum.Font.GothamBold,
 			TextScaled = true,
 			Text = string.format("Guests: %d  |  %ds", guests, serviceTime),
+		})
+	end
+
+	if canEndMatch then
+		children.EndMatch = React.createElement("TextButton", {
+			Size = UDim2.fromOffset(170, 34),
+			Position = UDim2.new(1, -186, 0, 20),
+			BackgroundColor3 = Color3.fromRGB(135, 48, 48),
+			BorderSizePixel = 0,
+			Text = "END MATCH [X]",
+			TextColor3 = Color3.fromRGB(255, 255, 255),
+			Font = Enum.Font.GothamBold,
+			TextSize = 15,
+			ZIndex = 2,
+			[React.Event.Activated] = function()
+				setEndMatchConfirmationOpen(true)
+			end,
 		})
 	end
 
@@ -196,6 +238,76 @@ local function GameCycleHud()
 			Font = Enum.Font.GothamBlack,
 			TextScaled = true,
 			Text = phase == GamePhase.Victory and "VICTORY!" or "DEFEAT",
+		})
+	end
+
+	if endMatchConfirmationOpen and canEndMatch then
+		children.EndMatchConfirmation = React.createElement("Frame", {
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+			BackgroundTransparency = 0.45,
+			BorderSizePixel = 0,
+			ZIndex = 10,
+		}, {
+			Dialog = React.createElement("Frame", {
+				Size = UDim2.fromOffset(430, 220),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				Position = UDim2.fromScale(0.5, 0.5),
+				BackgroundColor3 = Color3.fromRGB(42, 35, 38),
+				BorderSizePixel = 0,
+				ZIndex = 11,
+			}, {
+				Title = React.createElement("TextLabel", {
+					Size = UDim2.new(1, -32, 0, 42),
+					Position = UDim2.fromOffset(16, 14),
+					BackgroundTransparency = 1,
+					Text = "END MATCH?",
+					TextColor3 = Color3.fromRGB(255, 225, 225),
+					Font = Enum.Font.GothamBold,
+					TextSize = 25,
+					ZIndex = 12,
+				}),
+				Warning = React.createElement("TextLabel", {
+					Size = UDim2.new(1, -40, 0, 62),
+					Position = UDim2.fromOffset(20, 65),
+					BackgroundTransparency = 1,
+					Text = "The current day and unclaimed experience will be lost.",
+					TextColor3 = Color3.fromRGB(235, 225, 225),
+					Font = Enum.Font.Gotham,
+					TextSize = 17,
+					TextWrapped = true,
+					ZIndex = 12,
+				}),
+				Cancel = React.createElement("TextButton", {
+					Size = UDim2.fromOffset(180, 38),
+					Position = UDim2.new(0, 20, 1, -56),
+					BackgroundColor3 = Color3.fromRGB(95, 85, 85),
+					BorderSizePixel = 0,
+					Text = "CANCEL",
+					TextColor3 = Color3.fromRGB(255, 255, 255),
+					Font = Enum.Font.GothamBold,
+					TextSize = 16,
+					ZIndex = 12,
+					[React.Event.Activated] = function()
+						setEndMatchConfirmationOpen(false)
+					end,
+				}),
+				Confirm = React.createElement("TextButton", {
+					Size = UDim2.fromOffset(180, 38),
+					Position = UDim2.new(1, -200, 1, -56),
+					BackgroundColor3 = Color3.fromRGB(165, 55, 55),
+					BorderSizePixel = 0,
+					Text = "END MATCH",
+					TextColor3 = Color3.fromRGB(255, 255, 255),
+					Font = Enum.Font.GothamBold,
+					TextSize = 16,
+					ZIndex = 12,
+					[React.Event.Activated] = function()
+						setEndMatchConfirmationOpen(false)
+						NetClient:RequestEndMatch()
+					end,
+				}),
+			}),
 		})
 	end
 
