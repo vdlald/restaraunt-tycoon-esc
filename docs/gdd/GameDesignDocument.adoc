@@ -7,3 +7,5 @@ include::sections/20-game-loop.adoc[]
 include::sections/30-progression-economy.adoc[]
 
 include::sections/40-entities.adoc[]
+
+include::sections/50-lobby-party-matchmaking.adoc[]
