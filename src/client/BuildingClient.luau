@@ -16,6 +16,7 @@ local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Consts = require(ReplicatedStorage.Shared.Consts)
 local GamePhase = require(ReplicatedStorage.Shared.GamePhase)
+local RateLimiter = require(ReplicatedStorage.Shared.RateLimiter)
 local PlacementValidation = require(ReplicatedStorage.Shared.Building.PlacementValidation)
 
 --
@@ -25,7 +26,11 @@ local localGhost: Model? = nil
 local ghostHighlight: Highlight? = nil
 
 local lastSentPosition: Vector3? = nil
-local lastSentTime = 0
+local ghostMoveLimiter = RateLimiter.new({
+	capacity = 1,
+	refillPerSecond = 1 / Consts.BuildingGhostSendInterval,
+})
+local GHOST_MOVE_KEY = "ghostMove"
 
 --
 -- Helpers
@@ -80,7 +85,7 @@ end
 local function onMovingEntityChanged(entityId: number)
 	movingEntity = entityId
 	lastSentPosition = nil
-	lastSentTime = 0
+	ghostMoveLimiter:Reset(GHOST_MOVE_KEY)
 
 	if entityId == 0 then
 		if ghostHighlight then
@@ -172,15 +177,13 @@ local function updateGhostTarget()
 		PlacementValidation.Validate(candidateCFrame, footprintSize, buildZoneParts, Consts.BuildingMaxHoverHeight)
 	setGhostValid(validation.IsValid)
 
-	local now = tick()
-	local shouldSend = not lastSentPosition
+	local movedEnough = not lastSentPosition
 		or (targetPosition - lastSentPosition).Magnitude >= Consts.BuildingGhostSendThreshold
-		or (now - lastSentTime) >= Consts.BuildingGhostSendInterval
+	local shouldSend = movedEnough or ghostMoveLimiter:CanConsume(GHOST_MOVE_KEY)
 
-	if shouldSend then
+	if shouldSend and ghostMoveLimiter:TryConsume(GHOST_MOVE_KEY) then
 		NetClient:BuildingGhostMove(targetPosition)
 		lastSentPosition = targetPosition
-		lastSentTime = now
 	end
 end
 

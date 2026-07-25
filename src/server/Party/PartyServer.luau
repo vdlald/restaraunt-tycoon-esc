@@ -4,47 +4,34 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Net = require(ReplicatedStorage.Shared.Net)
+local RateLimiter = require(ReplicatedStorage.Shared.RateLimiter)
 local PartyService = require(script.Parent.PartyService)
 
 local PartyServer = {}
-local REQUEST_BUCKET_CAPACITY = 4
-local REQUEST_BUCKET_REFILL_PER_SECOND = 1
-local START_MATCH_COOLDOWN = 5
-
-type RequestBucket = {
-	tokens: number,
-	updatedAt: number,
-	lastStartAt: number,
-}
-
-local requestBuckets = {} :: { [Player]: RequestBucket }
-local readyPlayers = {} :: { [Player]: boolean }
+local partyRequestLimiter = RateLimiter.new({
+	capacity = 4,
+	refillPerSecond = 1,
+})
+local partyStartLimiter = RateLimiter.new({
+	capacity = 1,
+	refillPerSecond = 1 / 5,
+})
+local clientReadyLimiter = RateLimiter.new({
+	capacity = 1,
+	refillPerSecond = 0,
+})
 
 local function canHandleRequest(player: Player, action: number): boolean
-	local now = os.clock()
-	local bucket = requestBuckets[player]
-	if not bucket then
-		bucket = {
-			tokens = REQUEST_BUCKET_CAPACITY,
-			updatedAt = now,
-			lastStartAt = -math.huge,
-		}
-		requestBuckets[player] = bucket
-	end
-
-	bucket.tokens =
-		math.min(REQUEST_BUCKET_CAPACITY, bucket.tokens + (now - bucket.updatedAt) * REQUEST_BUCKET_REFILL_PER_SECOND)
-	bucket.updatedAt = now
-	if bucket.tokens < 1 then
+	if not partyRequestLimiter:CanConsume(player) then
 		return false
 	end
-	if action == PartyService.Action.Start and now - bucket.lastStartAt < START_MATCH_COOLDOWN then
+	if action == PartyService.Action.Start and not partyStartLimiter:CanConsume(player) then
 		return false
 	end
 
-	bucket.tokens -= 1
+	partyRequestLimiter:TryConsume(player)
 	if action == PartyService.Action.Start then
-		bucket.lastStartAt = now
+		partyStartLimiter:TryConsume(player)
 	end
 	return true
 end
@@ -76,18 +63,18 @@ function PartyServer:Start()
 		PartyService:OnPlayerAdded(player)
 	end)
 	Players.PlayerRemoving:Connect(function(player)
-		requestBuckets[player] = nil
-		readyPlayers[player] = nil
+		partyRequestLimiter:Reset(player)
+		partyStartLimiter:Reset(player)
+		clientReadyLimiter:Reset(player)
 		PartyService:OnPlayerRemoving(player)
 	end)
 	for _, player in Players:GetPlayers() do
 		PartyService:OnPlayerAdded(player)
 	end
 	Net.clientReady.listen(function(_: table, player: Player)
-		if readyPlayers[player] then
+		if not clientReadyLimiter:TryConsume(player) then
 			return
 		end
-		readyPlayers[player] = true
 		PartyService:SendInitialState(player)
 	end)
 

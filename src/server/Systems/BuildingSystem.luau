@@ -7,6 +7,7 @@ local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Class = require(ReplicatedStorage.Shared.Class)
 local Utils = require(ReplicatedStorage.Shared.Utils)
 local Consts = require(ReplicatedStorage.Shared.Consts)
+local RateLimiter = require(ReplicatedStorage.Shared.RateLimiter)
 local PlacementValidation = require(ReplicatedStorage.Shared.Building.PlacementValidation)
 local FurnitureCatalog = require(ReplicatedStorage.Shared.FurnitureCatalog)
 
@@ -34,8 +35,14 @@ function BuildingSystem.new()
 	self.cachedQueryMove = world:query(WorldWrapper:GetBuildingMoveStateComponent()):cached()
 
 	self.pendingRotations = {}
-	self.lastGhostMoveTime = {}
-	self.lastGhostRotateTime = {}
+	self.ghostMoveLimiter = RateLimiter.new({
+		capacity = 1,
+		refillPerSecond = 1 / Consts.BuildingGhostServerRateLimit,
+	})
+	self.ghostRotateLimiter = RateLimiter.new({
+		capacity = 1,
+		refillPerSecond = 1 / Consts.BuildingGhostServerRateLimit,
+	})
 	self.canFinalizePurchase = function(): boolean
 		return false
 	end
@@ -171,8 +178,8 @@ function BuildingSystem:CancelMove(playerEntity: jecs.Entity<nil>)
 	end
 
 	self.pendingRotations[playerEntity] = nil
-	self.lastGhostMoveTime[playerEntity] = nil
-	self.lastGhostRotateTime[playerEntity] = nil
+	self.ghostMoveLimiter:Reset(playerEntity)
+	self.ghostRotateLimiter:Reset(playerEntity)
 
 	if not pendingPurchase then
 		world:remove(furnitureEntity, WorldWrapper:GetBuildingLockComponent())
@@ -203,12 +210,9 @@ function BuildingSystem:RequestRotation(playerEntity: jecs.Entity<nil>, deltaYaw
 		return
 	end
 
-	local now = tick()
-	local last = self.lastGhostRotateTime[playerEntity] or 0
-	if now - last < Consts.BuildingGhostServerRateLimit then
+	if not self.ghostRotateLimiter:TryConsume(playerEntity) then
 		return
 	end
-	self.lastGhostRotateTime[playerEntity] = now
 
 	self.pendingRotations[playerEntity] = (self.pendingRotations[playerEntity] or 0) + deltaYaw
 end
@@ -218,12 +222,9 @@ function BuildingSystem:SetGhostTarget(playerEntity: jecs.Entity<nil>, position:
 		return
 	end
 
-	local now = tick()
-	local last = self.lastGhostMoveTime[playerEntity] or 0
-	if now - last < Consts.BuildingGhostServerRateLimit then
+	if not self.ghostMoveLimiter:TryConsume(playerEntity) then
 		return
 	end
-	self.lastGhostMoveTime[playerEntity] = now
 
 	world:set(playerEntity, WorldWrapper:GetBuildingGhostTargetComponent(), { Position = position })
 end
