@@ -178,4 +178,7 @@ Net.partyTeleportStatus.listen(function(data)
 	})[data.status] or "")
 end)
 
+-- All state listeners are active before requesting the server snapshots.
+Net.clientReady.send({})
+
 return State

@@ -36,11 +36,10 @@ end
 
 local globalReliable: types.channelData = create()
 local globalUnreliable: types.channelData = create()
+local MAX_INCOMING_BUFFER_BYTES = 64 * 1024
 
--- TODO handle invalid data better
 local function onServerEvent(player: Player, data, references)
-	-- Only accept buffer data
-	if not (typeof(data) == "buffer") then
+	if typeof(data) ~= "buffer" or buffer.len(data) > MAX_INCOMING_BUFFER_BYTES then
 		return
 	end
 

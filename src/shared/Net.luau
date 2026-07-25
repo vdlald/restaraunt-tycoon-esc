@@ -66,6 +66,7 @@ local Net = ByteNet.defineNamespace("Game", function()
 		}),
 
 		buildingGhostMove = ByteNet.definePacket({
+			reliabilityType = "unreliable",
 			value = ByteNet.struct({
 				position = ByteNet.vec3,
 			}),
@@ -189,6 +190,8 @@ local Net = ByteNet.defineNamespace("Game", function()
 		partyTeleportStatus = ByteNet.definePacket({
 			value = ByteNet.struct({ status = ByteNet.uint8 }),
 		}),
+
+		clientReady = ByteNet.definePacket({ value = ByteNet.struct({}) }),
 	}
 end)
 

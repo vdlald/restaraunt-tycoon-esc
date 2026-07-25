@@ -29,21 +29,30 @@ local function runListener(fn, ...)
 end
 
 return function(incomingBuffer: buffer, references: { [number]: unknown }?, player: Player?)
-	local length = buffer.len(incomingBuffer)
-	local readCursor = 0
+	local ok = pcall(function()
+		local length = buffer.len(incomingBuffer)
+		local readCursor = 0
 
-	readRefs.set(references)
+		readRefs.set(references)
 
-	while readCursor < length do
-		local packet = ref[buffer.readu8(incomingBuffer, readCursor)]
-		readCursor += 1
+		while readCursor < length do
+			local packet = ref[buffer.readu8(incomingBuffer, readCursor)]
+			readCursor += 1
+			if packet == nil then
+				error("Unknown ByteNet packet ID")
+			end
 
-		local value, valueLength = packet.reader(incomingBuffer, readCursor)
+			local value, valueLength = packet.reader(incomingBuffer, readCursor)
+			if type(valueLength) ~= "number" or valueLength < 0 or readCursor + valueLength > length then
+				error("Invalid ByteNet packet length")
+			end
+			readCursor += valueLength
 
-		readCursor += valueLength
-
-		for _, listener in packet.getListeners() do
-			runListener(listener, value, player)
+			for _, listener in packet.getListeners() do
+				runListener(listener, value, player)
+			end
 		end
-	end
+	end)
+
+	return ok
 end

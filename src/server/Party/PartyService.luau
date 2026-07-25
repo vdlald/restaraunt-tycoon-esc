@@ -38,6 +38,7 @@ local PartyService = {
 		NotInParty = 6,
 		TeleportFailed = 7,
 		AlreadyInParty = 8,
+		RateLimited = 9,
 	},
 	Action = {
 		Create = 1,
@@ -210,6 +211,12 @@ function PartyService:SendFriends(player: Player)
 		end
 	end
 	Net.partyFriendsState.sendTo({ friends = friends }, player)
+end
+
+function PartyService:SendInitialState(player: Player)
+	self:SendState(player)
+	self:SendInvites(player)
+	self:SendFriends(player)
 end
 
 function PartyService:BroadcastParty(party: Party)
@@ -585,9 +592,6 @@ function PartyService:OnPlayerAdded(player: Player)
 	pcall(function()
 		presence:SetAsync(key(player.UserId), { jobId = game.JobId, placeId = game.PlaceId }, EXPIRATION)
 	end)
-	self:SendState(player)
-	self:SendInvites(player)
-	self:SendFriends(player)
 end
 
 function PartyService:OnPlayerRemoving(player: Player)

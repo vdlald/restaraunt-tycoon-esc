@@ -52,8 +52,8 @@ Players.PlayerAdded:Connect(function(player)
 	if party.leaderUserId == player.UserId then
 		GameCycle:StartNewMatch(player)
 	end
-	-- ByteNet creates a per-player channel in its own PlayerAdded listener.
-	-- Deferring ensures that listener completes before we write to the channel.
+	-- The ready handshake is authoritative for initial state. This updates a
+	-- client that became ready while EnterMatch was still completing.
 	task.defer(function()
 		if player.Parent == Players then
 			GameCycle:SendState(player)
@@ -81,6 +81,20 @@ end)
 --
 -- Serve
 local Net = require(ReplicatedStorage.Shared.Net)
+
+Net.clientReady.listen(function(_: table, player: Player)
+	if player.Parent ~= Players then
+		return
+	end
+
+	GameCycle:SendState(player)
+	local playerData = DataManager:GetReadOnlyVersion(player)
+	if playerData then
+		Net.playerDataUpdate.sendTo({
+			experience = playerData.ExperienceEarned - playerData.ExperienceSpend,
+		}, player)
+	end
+end)
 
 -- Обрабатываем взаимодействие пользователя с миром
 Net.playerInteract.listen(function(data: table, player: Player)
