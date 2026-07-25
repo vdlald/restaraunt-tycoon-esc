@@ -35,7 +35,7 @@ local Net = ByteNet.defineNamespace("Game", function()
 		-- Обновление данных пользователя
 		playerDataUpdate = ByteNet.definePacket({
 			value = ByteNet.struct({
-				coins = ByteNet.int32,
+				experience = ByteNet.int32,
 			}),
 		}),
 
@@ -100,6 +100,7 @@ local Net = ByteNet.defineNamespace("Game", function()
 				countdownSeconds = ByteNet.uint8,
 				guestsRemaining = ByteNet.uint8,
 				serviceSecondsRemaining = ByteNet.uint16,
+				cash = ByteNet.int32,
 			}),
 		}),
 

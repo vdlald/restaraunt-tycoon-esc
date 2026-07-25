@@ -49,7 +49,7 @@ Each factory module returns `{ Component, Pool, System }`. New ingredients/dishe
 ByteNet namespace is defined in `src/shared/Net.luau`:
 
 - `playerInteract` — client → server, carries `entityId` and `keyCode`.
-- `playerDataUpdate` — server → client, currently syncs `coins`.
+- `playerDataUpdate` — server → client, syncs persistent `experience`.
 
 Client-side state lives in `src/client/State.luau`; UI components (React) subscribe to `Val` observables.
 

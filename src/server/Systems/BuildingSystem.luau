@@ -14,7 +14,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Types)
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
 local BuildingValidation = require(ServerScriptService.Server.Game.Building.BuildingValidation)
-local DataManager = require(ServerScriptService.Server.Player.DataManager)
 
 local WorldWrapper = require(ServerScriptService.Server.World)
 local world = WorldWrapper:GetWorld()
@@ -423,29 +422,26 @@ function BuildingSystem:attemptPlace(
 			return
 		end
 
-		local playerData = DataManager:GetReadOnlyVersion(playerView:GetPlayer())
-		if not playerData or playerData.CoinsEarned - playerData.CoinsSpend < pendingPurchase.Price then
+		local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
+		if GameCycle:GetCash() < pendingPurchase.Price then
 			self:CancelMove(playerEntity)
 			Net.furniturePurchaseResult.sendTo({
 				furnitureId = pendingPurchase.FurnitureId,
 				success = false,
-				reason = FurnitureCatalog.PurchaseResultReason.InsufficientCoins,
+				reason = FurnitureCatalog.PurchaseResultReason.InsufficientCash,
 			}, playerView:GetPlayer())
 			return
 		end
-		if
-			not DataManager:MutateData("buyFurniture", playerView:GetPlayer(), function(data)
-				data.CoinsSpend += pendingPurchase.Price
-			end)
-		then
+		if not GameCycle:TrySpendCash(pendingPurchase.Price) then
 			self:CancelMove(playerEntity)
 			Net.furniturePurchaseResult.sendTo({
 				furnitureId = pendingPurchase.FurnitureId,
 				success = false,
-				reason = FurnitureCatalog.PurchaseResultReason.InsufficientCoins,
+				reason = FurnitureCatalog.PurchaseResultReason.InsufficientCash,
 			}, playerView:GetPlayer())
 			return
 		end
+		instance:SetAttribute("MatchPurchasedFurnitureId", pendingPurchase.FurnitureId)
 		world:remove(furnitureEntity, WorldWrapper:GetPendingFurniturePurchaseComponent())
 	end
 

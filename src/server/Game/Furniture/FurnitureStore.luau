@@ -5,7 +5,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local FurnitureCatalog = require(ReplicatedStorage.Shared.FurnitureCatalog)
 local Net = require(ReplicatedStorage.Shared.Net)
-local DataManager = require(ServerScriptService.Server.Player.DataManager)
 local WorldWrapper = require(ServerScriptService.Server.World)
 local BuildingSystem = require(ServerScriptService.Server.Systems.BuildingSystem)
 local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
@@ -63,9 +62,8 @@ function FurnitureStore:RequestPurchase(player: Player, furnitureId: string)
 		return
 	end
 
-	local data = DataManager:GetReadOnlyVersion(player)
-	if not data or data.CoinsEarned - data.CoinsSpend < product.Price then
-		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.InsufficientCoins)
+	if GameCycle:GetCash() < product.Price then
+		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.InsufficientCash)
 		return
 	end
 

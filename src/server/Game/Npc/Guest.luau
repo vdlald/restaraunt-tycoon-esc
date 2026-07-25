@@ -9,7 +9,6 @@ local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Class = require(ReplicatedStorage.Shared.Class)
 local Utils = require(ReplicatedStorage.Shared.Utils)
 
-local DataManager = require(ServerScriptService.Server.Player.DataManager)
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
 local Types = require(ServerScriptService.Server.Types)
 local WorldWrapper = require(ServerScriptService.Server.World)
@@ -224,10 +223,6 @@ function System:processPlayerInteract(entityId: jecs.Entity<nil>, playerView: Ty
 
 	world:set(equippedTool, WorldWrapper:GetReleaseTargetComponent())
 	playerView:TakeFromHands()
-	DataManager:MutateData("feedGuest", playerView:GetPlayer(), function(data)
-		data.CoinsEarned += earned
-	end)
-
 	local guest = WorldWrapper:FindInstance(entityId)
 	if guest then
 		guest:RemoveTag("Interactable")

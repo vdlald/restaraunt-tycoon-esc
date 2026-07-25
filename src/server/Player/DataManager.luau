@@ -10,15 +10,37 @@ local Utils = require(ReplicatedStorage.Shared.Utils)
 local ProfileStore = require(ServerScriptService.Packages.ProfileStore)
 
 --
+export type FurnitureSnapshot = {
+	id: string,
+	x: number,
+	y: number,
+	z: number,
+	yaw: number,
+}
+
+export type ActiveMatchSnapshot = {
+	version: number,
+	day: number,
+	cash: number,
+	furniture: { FurnitureSnapshot },
+}
+
+export type PlayerData = {
+	ExperienceEarned: number,
+	ExperienceSpend: number,
+	ActiveMatch: ActiveMatchSnapshot?,
+	Revision: number,
+	LastPatchName: string,
+}
+
 -- Шаблон данных по умолчанию
-local PROFILE_TEMPLATE = {
-	CoinsEarned = 0,
-	CoinsSpend = 0,
+local PROFILE_TEMPLATE: PlayerData = {
+	ExperienceEarned = 0,
+	ExperienceSpend = 0,
+	ActiveMatch = nil,
 	Revision = 0,
 	LastPatchName = "INIT",
 }
-
-export type PlayerData = typeof(PROFILE_TEMPLATE)
 type Profile = ProfileStore.Profile<PlayerData>
 
 export type PlayerDataChangedEvent = {
@@ -37,6 +59,7 @@ end
 
 local Profiles: { [Player]: Profile } = {}
 local onProfileLoaded = function(_: Player, _: PlayerData) end
+local onProfileRemoving = function(_: Player) end
 
 --
 -- Вход игрока
@@ -79,6 +102,7 @@ end
 --
 -- Выход игрока
 local function onPlayerRemoving(player: Player)
+	onProfileRemoving(player)
 	local profile = Profiles[player]
 	if profile then
 		profile:EndSession() -- Сохраняет и снимает блокировку
@@ -120,6 +144,33 @@ function DataManager:OnProfileLoaded(handler: typeof(onProfileLoaded))
 	end
 end
 
+function DataManager:OnProfileRemoving(handler: typeof(onProfileRemoving))
+	local previous = onProfileRemoving
+
+	onProfileRemoving = function(player)
+		previous(player)
+		handler(player)
+	end
+end
+
+local function copyActiveMatch(snapshot: ActiveMatchSnapshot?): ActiveMatchSnapshot?
+	if snapshot == nil then
+		return nil
+	end
+
+	local furniture = table.create(#snapshot.furniture)
+	for index, item in snapshot.furniture do
+		furniture[index] = table.clone(item)
+	end
+
+	return {
+		version = snapshot.version,
+		day = snapshot.day,
+		cash = snapshot.cash,
+		furniture = furniture,
+	}
+end
+
 -- Создает копию данных пользователя
 function DataManager:GetReadOnlyVersion(player: Player): PlayerData?
 	local profile = Profiles[player]
@@ -128,8 +179,9 @@ function DataManager:GetReadOnlyVersion(player: Player): PlayerData?
 	end
 
 	return {
-		CoinsEarned = profile.Data.CoinsEarned,
-		CoinsSpend = profile.Data.CoinsSpend,
+		ExperienceEarned = profile.Data.ExperienceEarned,
+		ExperienceSpend = profile.Data.ExperienceSpend,
+		ActiveMatch = copyActiveMatch(profile.Data.ActiveMatch),
 		Revision = profile.Data.Revision,
 		LastPatchName = profile.Data.LastPatchName,
 	}

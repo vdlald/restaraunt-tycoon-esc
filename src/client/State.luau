@@ -29,7 +29,8 @@ export type FurniturePurchaseResult = {
 }
 
 local State = {
-	Coins = Val.new(0),
+	GameCash = Val.new(0),
+	Experience = Val.new(0),
 	IsInBuildingMode = Val.new(false),
 	MovingFurnitureEntity = Val.new(0),
 	GamePhase = Val.new(GamePhase.Lobby),
@@ -44,8 +45,8 @@ local State = {
 }
 
 Net.playerDataUpdate.listen(function(data)
-	local coins: number = data.coins
-	State.Coins:set(coins)
+	local experience: number = data.experience
+	State.Experience:set(experience)
 end)
 
 Net.dayReceipt.listen(function(data)
@@ -58,6 +59,7 @@ Net.gameCycleState.listen(function(data)
 	State.PhaseCountdown:set(data.countdownSeconds)
 	State.GuestsRemaining:set(data.guestsRemaining)
 	State.ServiceTimeRemaining:set(data.serviceSecondsRemaining)
+	State.GameCash:set(data.cash)
 	if data.phase == GamePhase.Lobby then
 		State.DayReceipt:set(nil)
 	end

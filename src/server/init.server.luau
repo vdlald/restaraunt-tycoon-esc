@@ -41,6 +41,10 @@ Players.PlayerRemoving:Connect(function(player)
 	world:remove(playerId, WorldWrapper:GetIngredientProcessingComponent())
 end)
 
+DataManager:OnProfileRemoving(function(player)
+	GameCycle:OnPlayerRemoving(player)
+end)
+
 --
 -- Serve
 local Net = require(ReplicatedStorage.Shared.Net)
@@ -229,13 +233,13 @@ DataManager:OnProfileDataChanged(function(event: DataManager.PlayerDataChangedEv
 	local playerData = event.Data
 
 	Net.playerDataUpdate.sendTo({
-		coins = playerData.CoinsEarned - playerData.CoinsSpend,
+		experience = playerData.ExperienceEarned - playerData.ExperienceSpend,
 	}, player)
 end)
 
 DataManager:OnProfileLoaded(function(player, playerData)
 	Net.playerDataUpdate.sendTo({
-		coins = playerData.CoinsEarned - playerData.CoinsSpend,
+		experience = playerData.ExperienceEarned - playerData.ExperienceSpend,
 	}, player)
 end)
 

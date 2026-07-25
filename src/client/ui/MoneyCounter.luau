@@ -13,16 +13,21 @@ local useEffect = React.useEffect
 --
 -- Компонент
 local function MoneyCounter()
-	local money, setMoney = useState(State.Coins:get())
+	local cash, setCash = useState(State.GameCash:get())
+	local experience, setExperience = useState(State.Experience:get())
 
 	useEffect(function()
-		local disconnectCoins = State.Coins:on(function(newValue)
-			setMoney(newValue)
+		local disconnectCash = State.GameCash:on(function(newValue)
+			setCash(newValue)
+		end)
+		local disconnectExperience = State.Experience:on(function(newValue)
+			setExperience(newValue)
 		end)
 
 		-- очистка при размонтировании компонента
 		return function()
-			disconnectCoins()
+			disconnectCash()
+			disconnectExperience()
 		end
 	end, {}) -- пустой массив зависимостей = запустить один раз
 
@@ -35,7 +40,7 @@ local function MoneyCounter()
 		TextColor3 = Color3.fromRGB(255, 215, 0),
 		Font = Enum.Font.GothamBold,
 		TextScaled = true,
-		Text = "💰 " .. tostring(money),
+		Text = string.format("💰 %d   XP %d", cash, experience),
 	}, {
 		Corner = React.createElement("UICorner", { CornerRadius = UDim.new(0, 8) }),
 	})

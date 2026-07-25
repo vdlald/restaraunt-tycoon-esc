@@ -7,7 +7,7 @@
 - `MutateData(patchName, player, mutation)` copies data, applies the mutation, increments `Revision`, sets `LastPatchName`, and writes back only if the revision has not changed.
 - `DataManager:OnProfileDataChanged(callback)` chains callbacks for data-change events.
 
-The server sends net worth (`CoinsEarned - CoinsSpend`) to the client via `playerDataUpdate`.
+The server sends persistent experience (`ExperienceEarned - ExperienceSpend`) to the client via `playerDataUpdate`.
 
 ## Important Roblox Studio setup
 

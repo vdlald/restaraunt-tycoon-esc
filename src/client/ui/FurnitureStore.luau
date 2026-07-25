@@ -16,7 +16,7 @@ local useState = React.useState
 local reasonMessages = {
 	[FurnitureCatalog.PurchaseResultReason.NotPreparation] = "Furniture can only be bought during preparation.",
 	[FurnitureCatalog.PurchaseResultReason.CountdownActive] = "The service countdown has already started.",
-	[FurnitureCatalog.PurchaseResultReason.InsufficientCoins] = "Not enough coins.",
+	[FurnitureCatalog.PurchaseResultReason.InsufficientCash] = "Not enough coins.",
 	[FurnitureCatalog.PurchaseResultReason.InvalidFurniture] = "This furniture is unavailable.",
 	[FurnitureCatalog.PurchaseResultReason.PlacementActive] = "Finish placing the current furniture first.",
 	[FurnitureCatalog.PurchaseResultReason.PlacementFailed] = "Could not start furniture placement.",
@@ -26,7 +26,7 @@ local function FurnitureStore()
 	local isOpen, setIsOpen = useState(State.IsFurnitureStoreOpen:get())
 	local phase, setPhase = useState(State.GamePhase:get())
 	local countdown, setCountdown = useState(State.PhaseCountdown:get())
-	local coins, setCoins = useState(State.Coins:get())
+	local cash, setCash = useState(State.GameCash:get())
 	local message, setMessage = useState("")
 
 	useEffect(function()
@@ -34,7 +34,7 @@ local function FurnitureStore()
 			State.IsFurnitureStoreOpen:on(setIsOpen),
 			State.GamePhase:on(setPhase),
 			State.PhaseCountdown:on(setCountdown),
-			State.Coins:on(setCoins),
+			State.GameCash:on(setCash),
 			State.FurniturePurchaseResult:on(function(result)
 				if result and not result.success then
 					setMessage(reasonMessages[result.reason] or "Purchase failed.")
@@ -84,7 +84,7 @@ local function FurnitureStore()
 	}
 
 	for index, product in FurnitureCatalog.Products do
-		local canAfford = coins >= product.Price
+		local canAfford = cash >= product.Price
 		products[product.Id] = React.createElement("TextButton", {
 			LayoutOrder = index + 1,
 			Size = UDim2.new(1, -16, 0, 38),
