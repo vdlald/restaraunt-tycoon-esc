@@ -28,6 +28,30 @@ export type FurniturePurchaseResult = {
 	reason: number,
 }
 
+export type PartyMember = {
+	userId: number,
+	displayName: string,
+	username: string,
+	isLeader: boolean,
+}
+
+export type PartyState = {
+	inParty: boolean,
+	partyId: string,
+	phase: number,
+	members: { PartyMember },
+	canStart: boolean,
+	canInvite: boolean,
+	canKick: boolean,
+	canLeave: boolean,
+}
+
+export type PartyInvite = {
+	partyId: string,
+	inviterUserId: number,
+	inviterDisplayName: string,
+}
+
 local State = {
 	GameCash = Val.new(0),
 	Experience = Val.new(0),
@@ -43,6 +67,19 @@ local State = {
 	IsFurnitureStoreOpen = Val.new(false),
 	FurniturePurchaseResult = Val.new(nil :: FurniturePurchaseResult?),
 	IngredientProcessStates = Val.new({} :: { [number]: IngredientProcessState }),
+	Party = Val.new({
+		inParty = false,
+		partyId = "",
+		phase = 0,
+		members = {},
+		canStart = false,
+		canInvite = false,
+		canKick = false,
+		canLeave = false,
+	} :: PartyState),
+	PartyFriends = Val.new({} :: { any }),
+	PartyInvites = Val.new({} :: { PartyInvite }),
+	PartyMessage = Val.new(""),
 }
 
 Net.playerDataUpdate.listen(function(data)
@@ -105,6 +142,40 @@ Net.ingredientProcessState.listen(function(data)
 		states[data.entityId] = nil
 	end
 	State.IngredientProcessStates:set(states)
+end)
+
+Net.partyState.listen(function(data)
+	State.Party:set(data :: PartyState)
+end)
+
+Net.partyFriendsState.listen(function(data)
+	State.PartyFriends:set(data.friends)
+end)
+
+Net.partyInvitesState.listen(function(data)
+	State.PartyInvites:set(data.invites :: { PartyInvite })
+end)
+
+Net.partyInviteReceived.listen(function(data)
+	local invites = table.clone(State.PartyInvites:get())
+	table.insert(invites, data :: PartyInvite)
+	State.PartyInvites:set(invites)
+	State.PartyMessage:set(`Invitation from {data.inviterDisplayName}`)
+end)
+
+Net.partyActionResult.listen(function(data)
+	if not data.success then
+		State.PartyMessage:set(`Party action failed ({data.reason})`)
+	end
+end)
+
+Net.partyTeleportStatus.listen(function(data)
+	State.PartyMessage:set(({
+		[1] = "Reserving server...",
+		[2] = "Teleporting...",
+		[3] = "Returning to lobby...",
+		[4] = "Teleport failed",
+	})[data.status] or "")
 end)
 
 return State

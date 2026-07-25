@@ -6,6 +6,7 @@ local MoneyCounter = require(StarterPlayer.StarterPlayerScripts.Client.UI.MoneyC
 local BuildingModeIndicator = require(StarterPlayer.StarterPlayerScripts.Client.UI.BuildingModeIndicator)
 local GameCycleHud = require(StarterPlayer.StarterPlayerScripts.Client.UI.GameCycleHud)
 local FurnitureStore = require(StarterPlayer.StarterPlayerScripts.Client.UI.FurnitureStore)
+local PartyPanel = require(StarterPlayer.StarterPlayerScripts.Client.UI.PartyPanel)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Packages.React)
@@ -24,6 +25,7 @@ root:render(React.createElement(React.Fragment, nil, {
 	BuildingModeIndicator = React.createElement(BuildingModeIndicator),
 	GameCycleHud = React.createElement(GameCycleHud),
 	FurnitureStore = React.createElement(FurnitureStore),
+	PartyPanel = React.createElement(PartyPanel),
 }))
 
 return {}

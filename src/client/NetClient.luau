@@ -58,4 +58,32 @@ function NetClient:RequestFurniturePurchase(furnitureId: string)
 	})
 end
 
+function NetClient:CreateParty()
+	Net.partyCreateRequest.send({})
+end
+
+function NetClient:InviteToParty(userId: number)
+	Net.partyInviteRequest.send({ targetUserId = userId })
+end
+
+function NetClient:AcceptPartyInvite(partyId: string)
+	Net.partyInviteAcceptRequest.send({ partyId = partyId })
+end
+
+function NetClient:DeclinePartyInvite(partyId: string)
+	Net.partyInviteDeclineRequest.send({ partyId = partyId })
+end
+
+function NetClient:LeaveParty()
+	Net.partyLeaveRequest.send({})
+end
+
+function NetClient:KickFromParty(userId: number)
+	Net.partyKickRequest.send({ targetUserId = userId })
+end
+
+function NetClient:StartPartyMatch()
+	Net.partyStartRequest.send({})
+end
+
 return NetClient

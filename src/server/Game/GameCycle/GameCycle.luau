@@ -18,8 +18,6 @@ local FlourBag = require(ServerScriptService.Server.Game.Furniture.FlourBag)
 local MeatSteakFridge = require(ServerScriptService.Server.Game.Furniture.MeatSteakFridge)
 local Trashcan = require(ServerScriptService.Server.Game.Furniture.Trashcan)
 local KitchenTable = require(ServerScriptService.Server.Game.Furniture.KitchenTable)
-local Chair = require(ServerScriptService.Server.Game.Furniture.Chair)
-local DiningTable = require(ServerScriptService.Server.Game.Furniture.DiningTable)
 local Plate = require(ServerScriptService.Server.Game.Items.Plate)
 local PlaceHolder = require(ServerScriptService.Server.Components.PlaceHolder)
 
@@ -73,17 +71,7 @@ GameCycle.currentReceipt = {
 } :: DayReceipt
 GameCycle.cash = 0
 GameCycle.owner = nil :: Player?
-GameCycle.resumeSnapshot = nil :: DataManager.ActiveMatchSnapshot?
 GameCycle.pendingExperience = {} :: { [Player]: number }
-
-local furnitureFactories = {
-	Chair = Chair,
-	DiningTable = DiningTable,
-	KitchenTable = KitchenTable,
-	FlourBag = FlourBag,
-	MeatSteakFridge = MeatSteakFridge,
-	Trashcan = Trashcan,
-}
 
 function GameCycle:GetDayProgression(day: number): (number, number)
 	local guests = day + 2
@@ -125,59 +113,11 @@ end
 function GameCycle:StartNewMatch(owner: Player)
 	self.owner = owner
 	self.cash = 20
-	self.resumeSnapshot = nil
 end
 
-function GameCycle:ResumeMatch(owner: Player, snapshot: DataManager.ActiveMatchSnapshot)
+function GameCycle:SetOwner(owner: Player?)
 	self.owner = owner
-	self.cash = snapshot.cash
-	self.day = snapshot.day
-	self.resumeSnapshot = snapshot
-end
-
-function GameCycle:CreateMatchSnapshot(): DataManager.ActiveMatchSnapshot
-	local furniture = {} :: { DataManager.FurnitureSnapshot }
-	for entity in world:query(WorldWrapper:GetBuildingMovableComponent()) do
-		local instance = WorldWrapper:FindInstance(entity)
-		local furnitureId = instance and instance:GetAttribute("MatchPurchasedFurnitureId")
-		if instance and instance:IsA("Model") and type(furnitureId) == "string" then
-			local position = instance:GetPivot().Position
-			local _, yaw = instance:GetPivot():ToOrientation()
-			table.insert(furniture, {
-				id = furnitureId,
-				x = position.X,
-				y = position.Y,
-				z = position.Z,
-				yaw = yaw,
-			})
-		end
-	end
-
-	return {
-		version = 1,
-		day = self.day,
-		cash = self.cash,
-		furniture = furniture,
-	}
-end
-
-function GameCycle:SavePreparationCheckpoint()
-	if not self.owner then
-		return
-	end
-	local snapshot = self:CreateMatchSnapshot()
-	DataManager:MutateData("saveMatchPreparation", self.owner, function(data)
-		data.ActiveMatch = snapshot
-	end)
-end
-
-function GameCycle:ClearActiveMatch()
-	if not self.owner then
-		return
-	end
-	DataManager:MutateData("clearActiveMatch", self.owner, function(data)
-		data.ActiveMatch = nil
-	end)
+	self:BroadcastState()
 end
 
 function GameCycle:CommitPendingExperience()
@@ -191,31 +131,14 @@ function GameCycle:CommitPendingExperience()
 	table.clear(self.pendingExperience)
 end
 
-function GameCycle:RestorePurchasedFurniture(snapshot: DataManager.ActiveMatchSnapshot)
-	for _, savedFurniture in snapshot.furniture do
-		local factory = furnitureFactories[savedFurniture.id]
-		if not factory then
-			warn(`Unknown saved furniture id: {savedFurniture.id}`)
-			continue
-		end
-		local _, instance = factory.Create()
-		instance.Parent = workspace
-		instance:SetAttribute("MatchPurchasedFurnitureId", savedFurniture.id)
-		instance:SetPrimaryPartCFrame(
-			CFrame.new(savedFurniture.x, savedFurniture.y, savedFurniture.z) * CFrame.Angles(0, savedFurniture.yaw, 0)
-		)
-	end
-end
-
 function GameCycle:EndMatch()
 	table.clear(self.pendingExperience)
-	self:ClearActiveMatch()
 	self:EnterLobby()
 end
 
 function GameCycle:OnPlayerRemoving(player: Player)
 	if self.owner == player then
-		self:EndMatch()
+		self.owner = nil
 	end
 end
 
@@ -392,7 +315,6 @@ function GameCycle:EnterLobby()
 	}
 	self.cash = 0
 	self.owner = nil
-	self.resumeSnapshot = nil
 	table.clear(self.pendingExperience)
 	self:BroadcastState()
 end
@@ -409,14 +331,9 @@ function GameCycle:EnterPreparation()
 	}
 	if not self.hasStarterScene then
 		self:CreateStarterScene()
-		if self.resumeSnapshot then
-			self:RestorePurchasedFurniture(self.resumeSnapshot)
-			self.resumeSnapshot = nil
-		end
 		self.hasStarterScene = true
 	end
 	self:SetFurnitureAnchored(false)
-	self:SavePreparationCheckpoint()
 	self:BroadcastState()
 end
 
@@ -434,7 +351,6 @@ function GameCycle:EnterResult(phase: GamePhase)
 	if phase == self.Phase.Defeat then
 		table.clear(self.pendingExperience)
 	end
-	self:ClearActiveMatch()
 	self.phase = phase
 	self.countdownSeconds = 0
 	self.countdownTarget = nil
@@ -444,7 +360,7 @@ function GameCycle:EnterResult(phase: GamePhase)
 end
 
 function GameCycle:RequestPhaseToggle(player: Player)
-	if self.owner and self.owner ~= player then
+	if self.owner ~= player then
 		return
 	end
 
@@ -456,17 +372,6 @@ function GameCycle:RequestPhaseToggle(player: Player)
 	end
 
 	if self.phase == self.Phase.Lobby then
-		if self.owner == nil then
-			local data = DataManager:GetReadOnlyVersion(player)
-			if not data then
-				return
-			end
-			if data.ActiveMatch then
-				self:ResumeMatch(player, data.ActiveMatch)
-			else
-				self:StartNewMatch(player)
-			end
-		end
 		self.countdownTarget = self.Phase.Preparation
 	elseif self.phase == self.Phase.Preparation then
 		self.countdownTarget = self.Phase.Service

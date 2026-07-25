@@ -4,6 +4,21 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ByteNet = require(ReplicatedStorage.Packages.ByteNet)
 
 local Net = ByteNet.defineNamespace("Game", function()
+	-- ByteNet registers structures while defining the namespace. Keeping these
+	-- declarations here is required on the client, where schema metadata is read.
+	local partyMember = ByteNet.struct({
+		userId = ByteNet.uint32,
+		displayName = ByteNet.string,
+		username = ByteNet.string,
+		isLeader = ByteNet.bool,
+	})
+
+	local partyInvite = ByteNet.struct({
+		partyId = ByteNet.string,
+		inviterUserId = ByteNet.uint32,
+		inviterDisplayName = ByteNet.string,
+	})
+
 	return {
 		-- Событие взаимодействия пользователя с View
 		playerInteract = ByteNet.definePacket({
@@ -119,6 +134,60 @@ local Net = ByteNet.defineNamespace("Game", function()
 				})),
 				total = ByteNet.uint16,
 			}),
+		}),
+
+		partyCreateRequest = ByteNet.definePacket({ value = ByteNet.struct({}) }),
+		partyInviteRequest = ByteNet.definePacket({
+			value = ByteNet.struct({ targetUserId = ByteNet.uint32 }),
+		}),
+		partyInviteAcceptRequest = ByteNet.definePacket({
+			value = ByteNet.struct({ partyId = ByteNet.string }),
+		}),
+		partyInviteDeclineRequest = ByteNet.definePacket({
+			value = ByteNet.struct({ partyId = ByteNet.string }),
+		}),
+		partyLeaveRequest = ByteNet.definePacket({ value = ByteNet.struct({}) }),
+		partyKickRequest = ByteNet.definePacket({
+			value = ByteNet.struct({ targetUserId = ByteNet.uint32 }),
+		}),
+		partyStartRequest = ByteNet.definePacket({ value = ByteNet.struct({}) }),
+
+		partyState = ByteNet.definePacket({
+			value = ByteNet.struct({
+				inParty = ByteNet.bool,
+				partyId = ByteNet.string,
+				phase = ByteNet.uint8,
+				members = ByteNet.array(partyMember),
+				canStart = ByteNet.bool,
+				canInvite = ByteNet.bool,
+				canKick = ByteNet.bool,
+				canLeave = ByteNet.bool,
+			}),
+		}),
+		partyFriendsState = ByteNet.definePacket({
+			value = ByteNet.struct({
+				friends = ByteNet.array(ByteNet.struct({
+					userId = ByteNet.uint32,
+					displayName = ByteNet.string,
+					username = ByteNet.string,
+					isOnlineInExperience = ByteNet.bool,
+					canInvite = ByteNet.bool,
+				})),
+			}),
+		}),
+		partyInvitesState = ByteNet.definePacket({
+			value = ByteNet.struct({ invites = ByteNet.array(partyInvite) }),
+		}),
+		partyInviteReceived = ByteNet.definePacket({ value = partyInvite }),
+		partyActionResult = ByteNet.definePacket({
+			value = ByteNet.struct({
+				action = ByteNet.uint8,
+				success = ByteNet.bool,
+				reason = ByteNet.uint8,
+			}),
+		}),
+		partyTeleportStatus = ByteNet.definePacket({
+			value = ByteNet.struct({ status = ByteNet.uint8 }),
 		}),
 	}
 end)

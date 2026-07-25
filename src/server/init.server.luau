@@ -1,5 +1,13 @@
 --!strict
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PlaceConfig = require(ReplicatedStorage.Shared.PlaceConfig)
+
+if PlaceConfig:IsLobbyPlace(game.PlaceId) then
+	require(script.Parent.Party.LobbyServer)
+	return
+end
+
 -- Зависимости
 local ServerScriptService = game:GetService("ServerScriptService")
 local DataManager = require(ServerScriptService.Server.Player.DataManager) -- грузим первым DataManager
@@ -12,15 +20,38 @@ local world = WorldWrapper:GetWorld()
 local BuildingSystem = require(ServerScriptService.Server.Systems.BuildingSystem)
 local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
 local FurnitureStore = require(ServerScriptService.Server.Game.Furniture.FurnitureStore)
+local PartyService = require(ServerScriptService.Server.Party.PartyService)
+local PartyServer = require(ServerScriptService.Server.Party.PartyServer)
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Consts = require(ReplicatedStorage.Shared.Consts)
 
 --
 -- Login
 local Players = game:GetService("Players")
+PartyServer:Start()
+
+local matchPartyId: string? = nil
+local lastGamePhase = GameCycle.phase
+local hasStartedMatch = false
+PartyService:SetLeaderChangedHandler(function(party, leaderUserId)
+	local leader = Players:GetPlayerByUserId(leaderUserId)
+	if leader then
+		GameCycle:SetOwner(leader)
+	end
+	matchPartyId = party.id
+end)
+
 Players.PlayerAdded:Connect(function(player)
+	local party, reason = PartyService:EnterMatch(player, player:GetJoinData().TeleportData)
+	if not party then
+		player:Kick(`Invalid match entry ({reason or PartyService.Error.InvalidInvite})`)
+		return
+	end
+	matchPartyId = party.id
 	WorldWrapper:RegisterPlayer(player)
+	if party.leaderUserId == player.UserId then
+		GameCycle:StartNewMatch(player)
+	end
 	-- ByteNet creates a per-player channel in its own PlayerAdded listener.
 	-- Deferring ensures that listener completes before we write to the channel.
 	task.defer(function()
@@ -271,6 +302,22 @@ local Trashcan = require(ServerScriptService.Server.Game.Furniture.Trashcan)
 
 RunService.Heartbeat:Connect(function(deltaTime)
 	GameCycle:Process(deltaTime)
+	if matchPartyId then
+		if GameCycle.phase == GameCycle.Phase.Preparation or GameCycle.phase == GameCycle.Phase.Service then
+			hasStartedMatch = true
+		end
+		if GameCycle.phase == GameCycle.Phase.Service and lastGamePhase ~= GameCycle.Phase.Service then
+			PartyService:SetMatchService(matchPartyId)
+		elseif
+			hasStartedMatch
+			and GameCycle.phase == GameCycle.Phase.Lobby
+			and lastGamePhase ~= GameCycle.Phase.Lobby
+		then
+			PartyService:FinishMatch(matchPartyId)
+			matchPartyId = nil
+		end
+	end
+	lastGamePhase = GameCycle.phase
 	-- start phase
 	PlayerInteractSystem:Process(deltaTime)
 	BuildingSystem:Process(deltaTime)

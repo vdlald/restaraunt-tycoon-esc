@@ -10,25 +10,9 @@ local Utils = require(ReplicatedStorage.Shared.Utils)
 local ProfileStore = require(ServerScriptService.Packages.ProfileStore)
 
 --
-export type FurnitureSnapshot = {
-	id: string,
-	x: number,
-	y: number,
-	z: number,
-	yaw: number,
-}
-
-export type ActiveMatchSnapshot = {
-	version: number,
-	day: number,
-	cash: number,
-	furniture: { FurnitureSnapshot },
-}
-
 export type PlayerData = {
 	ExperienceEarned: number,
 	ExperienceSpend: number,
-	ActiveMatch: ActiveMatchSnapshot?,
 	Revision: number,
 	LastPatchName: string,
 }
@@ -37,7 +21,6 @@ export type PlayerData = {
 local PROFILE_TEMPLATE: PlayerData = {
 	ExperienceEarned = 0,
 	ExperienceSpend = 0,
-	ActiveMatch = nil,
 	Revision = 0,
 	LastPatchName = "INIT",
 }
@@ -153,24 +136,6 @@ function DataManager:OnProfileRemoving(handler: typeof(onProfileRemoving))
 	end
 end
 
-local function copyActiveMatch(snapshot: ActiveMatchSnapshot?): ActiveMatchSnapshot?
-	if snapshot == nil then
-		return nil
-	end
-
-	local furniture = table.create(#snapshot.furniture)
-	for index, item in snapshot.furniture do
-		furniture[index] = table.clone(item)
-	end
-
-	return {
-		version = snapshot.version,
-		day = snapshot.day,
-		cash = snapshot.cash,
-		furniture = furniture,
-	}
-end
-
 -- Создает копию данных пользователя
 function DataManager:GetReadOnlyVersion(player: Player): PlayerData?
 	local profile = Profiles[player]
@@ -181,7 +146,6 @@ function DataManager:GetReadOnlyVersion(player: Player): PlayerData?
 	return {
 		ExperienceEarned = profile.Data.ExperienceEarned,
 		ExperienceSpend = profile.Data.ExperienceSpend,
-		ActiveMatch = copyActiveMatch(profile.Data.ActiveMatch),
 		Revision = profile.Data.Revision,
 		LastPatchName = profile.Data.LastPatchName,
 	}
