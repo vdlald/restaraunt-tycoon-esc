@@ -70,6 +70,8 @@ Players.PlayerRemoving:Connect(function(player)
 	BuildingSystem:CancelMove(playerId)
 	world:remove(playerId, WorldWrapper:GetBuildingModeComponent())
 	world:remove(playerId, WorldWrapper:GetIngredientProcessingComponent())
+	world:delete(playerId)
+	player:SetAttribute(Consts.Attributes.PlayerId, nil)
 end)
 
 DataManager:OnProfileRemoving(function(player)

@@ -88,6 +88,7 @@ local presence: any = RunService:IsStudio() and createLocalMap()
 local EXPIRATION = 60 * 60 * 24 * 30
 local TOPIC = "RestaurantPartyV1"
 local leaderChangedHandler = function(_: Party, _: number) end
+local controlledTeleports = {} :: { [number]: boolean }
 
 local function key(userId: number): string
 	return tostring(userId)
@@ -385,9 +386,13 @@ function PartyService:ReturnToLobby(player: Player)
 		return
 	end
 	Net.partyTeleportStatus.sendTo({ status = self.TeleportStatus.ReturningToLobby }, player)
-	pcall(function()
+	controlledTeleports[player.UserId] = true
+	local ok = pcall(function()
 		TeleportService:TeleportAsync(PlaceConfig.LobbyPlaceId, { player })
 	end)
+	if not ok then
+		controlledTeleports[player.UserId] = nil
+	end
 end
 
 function PartyService:Leave(player: Player): (Party?, PartyError?)
@@ -435,12 +440,17 @@ function PartyService:TeleportToMatch(player: Player, party: Party): boolean
 		return false
 	end
 	Net.partyTeleportStatus.sendTo({ status = self.TeleportStatus.Teleporting }, player)
+	controlledTeleports[player.UserId] = true
 	local options = Instance.new("TeleportOptions")
 	options.ReservedServerAccessCode = party.reservedServerAccessCode
 	options:SetTeleportData({ partyId = party.id })
-	return pcall(function()
+	local ok = pcall(function()
 		TeleportService:TeleportAsync(PlaceConfig.MatchPlaceId, { player }, options)
 	end)
+	if not ok then
+		controlledTeleports[player.UserId] = nil
+	end
+	return ok
 end
 
 function PartyService:StartMatch(leader: Player): (Party?, PartyError?)
@@ -557,9 +567,17 @@ function PartyService:FinishMatch(partyId: string)
 		end
 	end
 	if #players > 0 then
-		pcall(function()
+		for _, player in players do
+			controlledTeleports[player.UserId] = true
+		end
+		local ok = pcall(function()
 			TeleportService:TeleportAsync(PlaceConfig.LobbyPlaceId, players)
 		end)
+		if not ok then
+			for _, player in players do
+				controlledTeleports[player.UserId] = nil
+			end
+		end
 	end
 end
 
@@ -573,6 +591,10 @@ function PartyService:OnPlayerAdded(player: Player)
 end
 
 function PartyService:OnPlayerRemoving(player: Player)
+	if controlledTeleports[player.UserId] then
+		controlledTeleports[player.UserId] = nil
+		return
+	end
 	pcall(function()
 		presence:RemoveAsync(key(player.UserId))
 	end)
@@ -584,6 +606,10 @@ function PartyService:OnPlayerRemoving(player: Player)
 		end
 	end
 end
+
+TeleportService.TeleportInitFailed:Connect(function(player)
+	controlledTeleports[player.UserId] = nil
+end)
 
 pcall(function()
 	MessagingService:SubscribeAsync(TOPIC, function(message)

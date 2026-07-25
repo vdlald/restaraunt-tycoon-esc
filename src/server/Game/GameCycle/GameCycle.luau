@@ -233,10 +233,15 @@ function GameCycle:ClearScene()
 
 	-- Все сущности игрового мира регистрируются через WorldWrapper. Снимаем с карты
 	-- также ингредиенты и блюда, которые были созданы во время обслуживания.
-	for _, instanceData in world:query(WorldWrapper:GetInstanceComponent()) do
+	local sceneEntities = {}
+	for entity, instanceData in world:query(WorldWrapper:GetInstanceComponent()) do
 		if instanceData.Instance.Parent then
 			instanceData.Instance.Parent = nil
 		end
+		table.insert(sceneEntities, entity)
+	end
+	for _, entity in sceneEntities do
+		world:delete(entity)
 	end
 
 	for _, instance in self.sceneInstances do
