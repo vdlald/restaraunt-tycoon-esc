@@ -60,7 +60,7 @@ function MatchLifecycle:Start()
 		BuildingSystem:CancelMove(playerId)
 		world:remove(playerId, WorldWrapper:GetBuildingModeComponent())
 		world:remove(playerId, WorldWrapper:GetIngredientProcessingComponent())
-		world:delete(playerId)
+		world:set(playerId, WorldWrapper:GetReleaseTargetComponent())
 		player:SetAttribute(Consts.Attributes.PlayerId, nil)
 	end)
 

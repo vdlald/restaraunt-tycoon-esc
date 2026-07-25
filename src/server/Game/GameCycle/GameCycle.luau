@@ -241,7 +241,7 @@ function GameCycle:ClearScene()
 		table.insert(sceneEntities, entity)
 	end
 	for _, entity in sceneEntities do
-		world:delete(entity)
+		world:set(entity, WorldWrapper:GetReleaseTargetComponent())
 	end
 
 	for _, instance in self.sceneInstances do

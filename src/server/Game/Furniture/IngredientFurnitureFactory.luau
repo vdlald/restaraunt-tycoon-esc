@@ -37,6 +37,7 @@ function IngredientFurnitureSystem.new(
 	local self = setmetatable(parent, IngredientFurnitureSystem)
 
 	self.cachedQuery = world:query(WorldWrapper:GetPlayerInteractComponent()):with(furnitureComponent):cached()
+	self.furnitureComponent = furnitureComponent
 	self.ingredientPool = ingredientPool
 	self.ingredientComponent = ingredientComponent
 
@@ -44,6 +45,19 @@ function IngredientFurnitureSystem.new(
 end
 
 function IngredientFurnitureSystem:Process(_: number)
+	self:query(self.furnitureComponent, WorldWrapper:GetReleaseTargetComponent()):forEach(function(entity)
+		if not entity then
+			return
+		end
+		local instance = WorldWrapper:FindInstance(entity)
+		world:remove(entity, WorldWrapper:GetReleaseTargetComponent())
+		world:delete(entity)
+		if instance then
+			instance:Destroy()
+		end
+		return entity
+	end)
+
 	for entityId, intent in self.cachedQuery do
 		world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
 
@@ -75,7 +89,7 @@ function IngredientFurnitureSystem:processPlayerInteract(
 
 	if world:has(equippedTool, self.ingredientComponent) then
 		playerView:TakeFromHands()
-		self.ingredientPool:Release(equippedTool)
+		world:set(equippedTool, WorldWrapper:GetReleaseTargetComponent())
 	end
 end
 

@@ -59,6 +59,10 @@ function ObjectPool:Get(): (jecs.Entity<nil>, Instance)
 end
 
 function ObjectPool:Release(entityId: jecs.Entity<nil>)
+	if world:has(entityId, PoolComponent) then
+		return
+	end
+
 	if self._releaseCallback then
 		self._releaseCallback(entityId)
 	end

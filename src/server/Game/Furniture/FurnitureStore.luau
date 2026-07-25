@@ -77,8 +77,13 @@ function FurnitureStore:RequestPurchase(player: Player, furnitureId: string)
 	})
 
 	if not BuildingSystem:StartPurchasePlacement(playerEntity, furnitureEntity) then
-		instance:Destroy()
-		world:delete(furnitureEntity)
+		local children = world:get(furnitureEntity, WorldWrapper:GetChildEntitiesComponent())
+		if children then
+			for _, childEntity in children.Entities do
+				world:set(childEntity, WorldWrapper:GetReleaseTargetComponent())
+			end
+		end
+		world:set(furnitureEntity, WorldWrapper:GetReleaseTargetComponent())
 		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.PlacementFailed)
 		return
 	end

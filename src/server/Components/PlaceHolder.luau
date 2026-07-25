@@ -20,7 +20,7 @@ local placeHolderComponent = world:component() :: PlaceHolderComponent
 
 --
 -- Placed
-export type Placed = jecs.Id<{ PlaceHolderEntity: jecs.Id<nil> }>
+export type Placed = jecs.Id<{ PlaceHolderEntity: jecs.Entity<nil> }>
 local _placedComponent = world:component() :: Placed
 
 world:set(_placedComponent, jecs.OnAdd, function(entity, _, _)
@@ -33,7 +33,7 @@ end)
 
 --
 -- Holds
-export type Holds = jecs.Id<{ TargetEntity: jecs.Id<nil>, Weld: WeldConstraint }>
+export type Holds = jecs.Id<{ TargetEntity: jecs.Entity<nil>, Weld: WeldConstraint }>
 local _holdsComponent = world:component() :: Holds
 
 -- Обработка установки связи
@@ -61,12 +61,14 @@ world:set(_holdsComponent, jecs.OnAdd, function(placeHolderEntity, _, data)
 end)
 
 -- Обработка снятия связи
-world:set(_holdsComponent, jecs.OnRemove, function(placeHolderEntity, _, _)
+world:set(_holdsComponent, jecs.OnRemove, function(placeHolderEntity, _, deleting)
 	local holdsData = world:get(placeHolderEntity, _holdsComponent)
 	local targetEntity: jecs.Entity<nil>, weld: WeldConstraint = holdsData.TargetEntity, holdsData.Weld
 
 	world:get(placeHolderEntity, WorldWrapper:GetInstanceComponent()).Instance:RemoveTag("Holds")
-	world:remove(targetEntity, _placedComponent)
+	if not deleting then
+		world:remove(targetEntity, _placedComponent)
+	end
 
 	weld:Destroy()
 end)
@@ -97,6 +99,15 @@ end
 --
 -- Процессинг
 function System:Process(_: number)
+	self:query(placeHolderComponent, WorldWrapper:GetReleaseTargetComponent()):forEach(function(entity)
+		if not entity then
+			return
+		end
+		world:remove(entity, WorldWrapper:GetReleaseTargetComponent())
+		world:delete(entity)
+		return entity
+	end)
+
 	-- Обрабатываем запрос пользователя на размещение объекта
 	self:query(WorldWrapper:GetPlayerInteractComponent())
 		:with(placeHolderComponent)

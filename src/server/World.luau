@@ -29,7 +29,7 @@ export type PlayerInteractableComponent = jecs.Id<nil>
 local playerInteractableComponent = world:component() :: PlayerInteractableComponent
 
 -- Пользователь хочет взаимодействовать, позволяет провалидировать возможность взаимодействия
-export type WantsToInteractComponent = jecs.Id<{ target: jecs.Entity<nil>, KeyCode: Enum.KeyCode }>
+export type WantsToInteractComponent = jecs.Id<{ Target: jecs.Entity<nil>, KeyCode: Enum.KeyCode }>
 local wantsToInteractComponent = world:component() :: WantsToInteractComponent
 
 -- Instance получил запрос на взаимодействие
@@ -91,6 +91,10 @@ export type PendingFurniturePurchaseComponent = jecs.Id<{
 }>
 local pendingFurniturePurchaseComponent = world:component() :: PendingFurniturePurchaseComponent
 
+-- ChildEntities - сущности, жизненный цикл которых принадлежит родителю
+export type ChildEntitiesComponent = jecs.Id<{ Entities: { jecs.Entity<nil> } }>
+local childEntitiesComponent = world:component() :: ChildEntitiesComponent
+
 --
 -- Объявление WorldWrapper
 --
@@ -119,6 +123,7 @@ export type WorldWrapper = {
 	GetBuildingMoveStateComponent: (self: WorldWrapper) -> BuildingMoveStateComponent,
 	GetBuildingGhostTargetComponent: (self: WorldWrapper) -> BuildingGhostTargetComponent,
 	GetPendingFurniturePurchaseComponent: (self: WorldWrapper) -> PendingFurniturePurchaseComponent,
+	GetChildEntitiesComponent: (self: WorldWrapper) -> ChildEntitiesComponent,
 
 	-- lookup
 	FindPlayer: (self: WorldWrapper, playerId: jecs.Entity<nil>) -> Types.PlayerView?,
@@ -199,6 +204,10 @@ end
 
 function WorldWrapper:GetPendingFurniturePurchaseComponent(): PendingFurniturePurchaseComponent
 	return pendingFurniturePurchaseComponent
+end
+
+function WorldWrapper:GetChildEntitiesComponent(): ChildEntitiesComponent
+	return childEntitiesComponent
 end
 
 function WorldWrapper:FindPlayer(playerId: jecs.Entity<nil>): Types.PlayerView?

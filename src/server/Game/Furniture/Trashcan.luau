@@ -50,6 +50,19 @@ function System.new()
 end
 
 function System:Process(_: number)
+	self:query(TrashcanComponent, WorldWrapper:GetReleaseTargetComponent()):forEach(function(entity)
+		if not entity then
+			return
+		end
+		local instance = WorldWrapper:FindInstance(entity)
+		world:remove(entity, WorldWrapper:GetReleaseTargetComponent())
+		world:delete(entity)
+		if instance then
+			instance:Destroy()
+		end
+		return entity
+	end)
+
 	for entityId, intent in self.cachedQuery do
 		world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
 

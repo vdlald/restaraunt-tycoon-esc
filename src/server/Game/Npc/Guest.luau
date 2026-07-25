@@ -183,6 +183,19 @@ function System.new()
 end
 
 function System:Process(_: number)
+	self:query(GuestNpcComponent, WorldWrapper:GetReleaseTargetComponent()):forEach(function(entityId)
+		if not entityId then
+			return
+		end
+		local instance = WorldWrapper:FindInstance(entityId)
+		world:remove(entityId, WorldWrapper:GetReleaseTargetComponent())
+		world:delete(entityId)
+		if instance then
+			instance:Destroy()
+		end
+		return entityId
+	end)
+
 	for entityId, guestState in self.guestsQuery do
 		if not guestState.MovementStarted then
 			local guest = WorldWrapper:FindInstance(entityId)

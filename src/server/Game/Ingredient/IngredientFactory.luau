@@ -142,7 +142,7 @@ function IngredientSystem:processIngredient(target: jecs.Entity<nil>, deltaTime:
 		local nextEntity, nextInstance = self.handsMorphFunc(target)
 		nextInstance.Parent = workspace
 		world:set(target, WorldWrapper:GetReplaceTargetComponent(), { NewTarget = nextEntity })
-		self.ingredientPool:Release(target)
+		world:set(target, WorldWrapper:GetReleaseTargetComponent())
 		return
 	end
 

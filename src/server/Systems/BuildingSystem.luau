@@ -164,10 +164,13 @@ function BuildingSystem:CancelMove(playerEntity: jecs.Entity<nil>)
 	local instance = WorldWrapper:FindInstance(furnitureEntity)
 	local pendingPurchase = world:get(furnitureEntity, WorldWrapper:GetPendingFurniturePurchaseComponent())
 	if pendingPurchase then
-		if instance then
-			instance:Destroy()
+		local children = world:get(furnitureEntity, WorldWrapper:GetChildEntitiesComponent())
+		if children then
+			for _, childEntity in children.Entities do
+				world:set(childEntity, WorldWrapper:GetReleaseTargetComponent())
+			end
 		end
-		world:delete(furnitureEntity)
+		world:set(furnitureEntity, WorldWrapper:GetReleaseTargetComponent())
 	elseif instance and instance:IsA("Model") then
 		instance.Parent = moveState.OriginalParent
 		instance:SetPrimaryPartCFrame(moveState.OriginalCFrame)
@@ -180,6 +183,7 @@ function BuildingSystem:CancelMove(playerEntity: jecs.Entity<nil>)
 	self.pendingRotations[playerEntity] = nil
 	self.ghostMoveLimiter:Reset(playerEntity)
 	self.ghostRotateLimiter:Reset(playerEntity)
+	world:remove(playerEntity, WorldWrapper:GetBuildingGhostTargetComponent())
 
 	if not pendingPurchase then
 		world:remove(furnitureEntity, WorldWrapper:GetBuildingLockComponent())
