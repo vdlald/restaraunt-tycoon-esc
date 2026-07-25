@@ -1,7 +1,7 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ByteNet = require(ReplicatedStorage.Packages.ByteNet)
+local ByteNet = require(ReplicatedStorage.ForkedPackages.ByteNet)
 
 local Net = ByteNet.defineNamespace("Game", function()
 	-- ByteNet registers structures while defining the namespace. Keeping these

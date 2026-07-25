@@ -6,6 +6,7 @@
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
       "Packages": { "$path": "Packages" },
+      "ForkedPackages": { "$path": "ForkedPackages" },
       "Shared": { "$path": "src/shared" }
     },
 

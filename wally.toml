@@ -19,9 +19,6 @@ Cryo       = "phalanxia/cryo@1.0.3"
 Promise    = "evaera/promise@4.0.0"
 Janitor    = "howmanysmall/janitor@1.18.3"
 
-# Сеть и данные
-ByteNet    = "ffrostflame/bytenet@0.4.6"
-
 [server-dependencies]
 ProfileStore = "lm-loleris/profilestore@1.0.3"
 
