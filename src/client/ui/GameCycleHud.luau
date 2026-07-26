@@ -2,12 +2,14 @@
 
 local StarterPlayer = game:GetService("StarterPlayer")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local State = require(StarterPlayer.StarterPlayerScripts.Client.State)
 local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local React = require(ReplicatedStorage.Packages.React)
 local GamePhase = require(ReplicatedStorage.Shared.GamePhase)
+local PlaceConfig = require(ReplicatedStorage.Shared.PlaceConfig)
 
 local useEffect = React.useEffect
 local useState = React.useState
@@ -99,6 +101,26 @@ local function GameCycleHud()
 			Text = string.format("Day %d/20  |  %s", day, phaseNames[phase] or "UNKNOWN"),
 		}),
 	}
+
+	if phase == GamePhase.Lobby then
+		children.StartMatch = React.createElement("TextButton", {
+			Size = UDim2.fromOffset(190, 38),
+			Position = UDim2.new(0.5, -95, 0, 95),
+			BackgroundColor3 = Color3.fromRGB(50, 145, 85),
+			BorderSizePixel = 0,
+			Text = "START MATCH  [P]",
+			TextColor3 = Color3.fromRGB(255, 255, 255),
+			Font = Enum.Font.GothamBold,
+			TextSize = 16,
+			[React.Event.Activated] = function()
+				if PlaceConfig:IsLobbyPlace(game.PlaceId) or RunService:IsStudio() then
+					NetClient:StartPartyMatch()
+				else
+					NetClient:RequestGamePhaseToggle()
+				end
+			end,
+		})
+	end
 
 	if countdown > 0 then
 		children.Countdown = React.createElement("TextLabel", {

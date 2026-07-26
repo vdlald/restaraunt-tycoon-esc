@@ -9,12 +9,26 @@ local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Consts = require(ReplicatedStorage.Shared.Consts)
+local GamePhase = require(ReplicatedStorage.Shared.GamePhase)
+local PlaceConfig = require(ReplicatedStorage.Shared.PlaceConfig)
 
 --
 -- Взаимодействие с миром
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local ContextActionService = game:GetService("ContextActionService")
 
 local activeIngredientProcessEntity: number? = nil
+
+local function requestMatchStart()
+	if
+		PlaceConfig:IsLobbyPlace(game.PlaceId) or (RunService:IsStudio() and State.GamePhase:get() == GamePhase.Lobby)
+	then
+		NetClient:StartPartyMatch()
+	else
+		NetClient:RequestGamePhaseToggle()
+	end
+end
 
 local function stopIngredientProcess()
 	if not activeIngredientProcessEntity then
@@ -28,11 +42,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 	if gameProcessed then
 		return
 	end
-	if input.KeyCode == Enum.KeyCode.P then
-		NetClient:RequestGamePhaseToggle()
-		return
-	end
-
 	-- В режиме перемещения фурнитуры E управляется BuildingClient (установка)
 	if State.IsInBuildingMode:get() and State.MovingFurnitureEntity:get() ~= 0 then
 		return
@@ -59,6 +68,14 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		NetClient:PlayerInteract(entityId, input.KeyCode)
 	end
 end)
+
+ContextActionService:BindActionAtPriority("StartMatch", function(_, inputState)
+	if inputState ~= Enum.UserInputState.Begin or UserInputService:GetFocusedTextBox() then
+		return Enum.ContextActionResult.Pass
+	end
+	requestMatchStart()
+	return Enum.ContextActionResult.Sink
+end, false, 2_000, Enum.KeyCode.P)
 
 UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.F then

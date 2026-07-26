@@ -172,7 +172,6 @@ function GameCycle:EnterLobby()
 	self:GetScene():Clear()
 	self.state:ResetLobby()
 	self.economy:Clear()
-	self.owner = nil
 	self:BroadcastState()
 end
 

@@ -21,6 +21,7 @@ function MatchLifecycle:Start(context)
 	local world = worldWrapper:GetWorld()
 	local buildingSystem = context.Building
 	local gameCycle = self.gameCycle
+	local initializedPlayers = {} :: { [Player]: boolean }
 	PartyService:SetLeaderChangedHandler(function(party, leaderUserId)
 		local leader = Players:GetPlayerByUserId(leaderUserId)
 		if leader then
@@ -28,8 +29,22 @@ function MatchLifecycle:Start(context)
 		end
 		self.matchPartyId = party.id
 	end)
+	PartyService:SetStudioMatchStartHandler(function(party)
+		local leader = Players:GetPlayerByUserId(party.leaderUserId)
+		if not leader then
+			return
+		end
+		self.matchPartyId = party.id
+		gameCycle:StartNewMatch(leader)
+		gameCycle:RequestPhaseToggle(leader)
+	end)
 
-	Players.PlayerAdded:Connect(function(player)
+	local function onPlayerAdded(player: Player)
+		if initializedPlayers[player] then
+			return
+		end
+		initializedPlayers[player] = true
+
 		local party, reason = PartyService:EnterMatch(player, player:GetJoinData().TeleportData)
 		if not party then
 			player:Kick(`Invalid match entry ({reason or PartyService.Error.InvalidInvite})`)
@@ -49,9 +64,15 @@ function MatchLifecycle:Start(context)
 				gameCycle:SendState(player)
 			end
 		end)
-	end)
+	end
+
+	Players.PlayerAdded:Connect(onPlayerAdded)
+	for _, player in Players:GetPlayers() do
+		onPlayerAdded(player)
+	end
 
 	Players.PlayerRemoving:Connect(function(player)
+		initializedPlayers[player] = nil
 		local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
 		if not playerId then
 			return

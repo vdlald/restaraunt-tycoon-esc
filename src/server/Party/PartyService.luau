@@ -89,6 +89,7 @@ local presence: any = RunService:IsStudio() and createLocalMap()
 local EXPIRATION = 60 * 60 * 24 * 30
 local TOPIC = "RestaurantPartyV1"
 local leaderChangedHandler = function(_: Party, _: number) end
+local studioMatchStartHandler = function(_: Party) end
 local controlledTeleports = {} :: { [number]: boolean }
 
 local function key(userId: number): string
@@ -388,6 +389,10 @@ function PartyService:SetLeaderChangedHandler(handler: (Party, number) -> ())
 	leaderChangedHandler = handler
 end
 
+function PartyService:SetStudioMatchStartHandler(handler: (Party) -> ())
+	studioMatchStartHandler = handler
+end
+
 function PartyService:ReturnToLobby(player: Player)
 	if PlaceConfig.LobbyPlaceId == 0 then
 		return
@@ -471,6 +476,20 @@ function PartyService:StartMatch(leader: Player): (Party?, PartyError?)
 	if party.phase ~= self.Phase.Lobby then
 		return nil, self.Error.WrongPhase
 	end
+	if RunService:IsStudio() then
+		local updated = updateParty(party.id, function(current)
+			if current and current.leaderUserId == leader.UserId and current.phase == self.Phase.Lobby then
+				current.phase = self.Phase.Preparation
+			end
+			return current
+		end)
+		if not updated or updated.phase ~= self.Phase.Preparation then
+			return nil, self.Error.WrongPhase
+		end
+		self:BroadcastParty(updated)
+		studioMatchStartHandler(updated)
+		return updated, nil
+	end
 	if PlaceConfig.MatchPlaceId == 0 then
 		return nil, self.Error.TeleportFailed
 	end
@@ -507,14 +526,7 @@ function PartyService:EnterMatch(player: Player, teleportData: any): (Party?, Pa
 		if not party then
 			return nil, createError
 		end
-		party.phase = self.Phase.Preparation
-		local updated = updateParty(party.id, function(current)
-			if current then
-				current.phase = self.Phase.Preparation
-			end
-			return current
-		end)
-		return updated, nil
+		return party, nil
 	end
 	if type(teleportData) ~= "table" or type(teleportData.partyId) ~= "string" then
 		return nil, self.Error.InvalidInvite
