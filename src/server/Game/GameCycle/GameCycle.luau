@@ -206,6 +206,9 @@ function GameCycle:EnterResult(phase: GamePhase)
 end
 
 function GameCycle:RequestPhaseToggle(player: Player)
+	if self.owner == nil and self.state.phase == self.Phase.Lobby then
+		self:StartNewMatch(player)
+	end
 	if self.owner ~= player then
 		return
 	end

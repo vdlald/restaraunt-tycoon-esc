@@ -2,7 +2,6 @@
 
 local StarterPlayer = game:GetService("StarterPlayer")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 local State = require(StarterPlayer.StarterPlayerScripts.Client.State)
 local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
 
@@ -113,7 +112,7 @@ local function GameCycleHud()
 			Font = Enum.Font.GothamBold,
 			TextSize = 16,
 			[React.Event.Activated] = function()
-				if PlaceConfig:IsLobbyPlace(game.PlaceId) or RunService:IsStudio() then
+				if PlaceConfig:IsLobbyPlace(game.PlaceId) then
 					NetClient:StartPartyMatch()
 				else
 					NetClient:RequestGamePhaseToggle()

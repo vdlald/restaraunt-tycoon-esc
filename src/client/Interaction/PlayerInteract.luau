@@ -9,21 +9,17 @@ local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Consts = require(ReplicatedStorage.Shared.Consts)
-local GamePhase = require(ReplicatedStorage.Shared.GamePhase)
 local PlaceConfig = require(ReplicatedStorage.Shared.PlaceConfig)
 
 --
 -- Взаимодействие с миром
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
 
 local activeIngredientProcessEntity: number? = nil
 
 local function requestMatchStart()
-	if
-		PlaceConfig:IsLobbyPlace(game.PlaceId) or (RunService:IsStudio() and State.GamePhase:get() == GamePhase.Lobby)
-	then
+	if PlaceConfig:IsLobbyPlace(game.PlaceId) then
 		NetClient:StartPartyMatch()
 	else
 		NetClient:RequestGamePhaseToggle()
