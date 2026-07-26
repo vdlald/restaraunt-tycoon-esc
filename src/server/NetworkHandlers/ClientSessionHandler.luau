@@ -7,7 +7,7 @@ local Net = require(ReplicatedStorage.Shared.Net)
 local ClientSessionHandler = {}
 
 function ClientSessionHandler.Start(application)
-	Net.clientReady.listen(function(_: table, player: Player)
+	Net.clientReady.listen(function(_: {}, player: Player)
 		application:SynchronizeClient(player)
 	end)
 end

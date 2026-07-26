@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local GamePhase = require(ReplicatedStorage.Shared.GamePhase)
-local MatchPhaseState = require(ServerScriptService.Server.Game.GameCycle.MatchPhaseState)
+local MatchPhaseState = require(ServerScriptService.Server.Domain.Match.MatchPhaseState)
 
 describe("MatchPhaseState", function()
 	it("transitions from lobby to preparation after the countdown", function()

@@ -16,14 +16,14 @@ local InteractionApplication = {}
 InteractionApplication.__index = InteractionApplication
 
 export type InteractionApplication = {
-	worldWrapper: World.WorldWrapper,
+	worldWrapper: World.GameWorld,
 	gameCycle: typeof(GameCycle.new()),
 	catalog: GameplayCatalog,
 	RequestInteraction: (self: InteractionApplication, player: Player, entityId: number, keyCodeValue: number) -> (),
 }
 
 function InteractionApplication.new(
-	worldWrapper: World.WorldWrapper,
+	worldWrapper: World.GameWorld,
 	gameCycle: typeof(GameCycle.new()),
 	catalog: GameplayCatalog
 ): InteractionApplication
@@ -47,19 +47,15 @@ function InteractionApplication:RequestInteraction(player: Player, entityId: num
 		return
 	end
 
-	local world = self.worldWrapper:GetWorld()
 	local playerView = self.worldWrapper:FindPlayer(playerId)
 	if not playerView then
 		error("unknown userId=" .. player.UserId)
 		return
 	end
-	if not self.gameCycle:CanInteract() or not world:contains(entityId) then
+	if not self.gameCycle:CanInteract() or not self.worldWrapper:Contains(entityId) then
 		return
 	end
-	if
-		not world:has(entityId, self.worldWrapper:GetPlayerInteractableComponent())
-		and not world:has(entityId, self.worldWrapper:GetBuildingMovableComponent())
-	then
+	if not self.worldWrapper:IsPlayerInteractable(entityId) and not self.worldWrapper:IsBuildingMovable(entityId) then
 		warn("suspicious player interaction, not interactable view: userId=" .. player.UserId)
 		return
 	end
@@ -76,8 +72,8 @@ function InteractionApplication:RequestInteraction(player: Player, entityId: num
 
 	local distance = playerView:GetDistance(instance)
 	if distance > Consts.InteractablePlayerDistance + 4 then
-		local lock = world:get(entityId, self.worldWrapper:GetBuildingLockComponent())
-		local isPlacing = keyCode == Enum.KeyCode.E and lock and lock.OwnerPlayerEntity == playerId
+		local lockOwner = self.worldWrapper:GetBuildingLockOwner(entityId)
+		local isPlacing = keyCode == Enum.KeyCode.E and lockOwner == playerId
 		if not isPlacing then
 			warn("suspicious player interaction, too far: userId=" .. player.UserId .. ", distance=" .. distance)
 			return

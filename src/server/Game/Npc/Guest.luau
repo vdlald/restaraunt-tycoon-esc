@@ -11,6 +11,7 @@ local Utils = require(ReplicatedStorage.Shared.Utils)
 
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
 local Types = require(ServerScriptService.Server.Types)
+local World = require(ServerScriptService.Server.World)
 export type GuestState = "Arriving" | "WaitingForService" | "Leaving"
 export type GuestNpcComponent = jecs.Id<{
 	State: GuestState,
@@ -18,10 +19,14 @@ export type GuestNpcComponent = jecs.Id<{
 	MovementStarted: boolean,
 }>
 
+type DishFactoryContract = {
+	GetAbstractDishComponent: (self: DishFactoryContract) -> jecs.Id<nil>,
+}
+
 type GuestContext = {
-	worldWrapper: any,
-	world: any,
-	dishFactory: any,
+	worldWrapper: World.GameWorld,
+	world: jecs.World,
+	dishFactory: DishFactoryContract,
 	component: GuestNpcComponent,
 	onFed: (Player, jecs.Entity<nil>, jecs.Entity<nil>) -> number?,
 	onExited: (jecs.Entity<nil>) -> (),
@@ -169,7 +174,7 @@ end
 
 local System = Class.defineClass("System", AbstractSystem)
 
-function System.new(worldContext, context: GuestContext)
+function System.new(worldContext: World.GameWorld, context: GuestContext)
 	local parent = AbstractSystem.new(worldContext)
 	local self = setmetatable(parent, System)
 	self.context = context
@@ -234,7 +239,7 @@ end
 
 local Guest = {}
 
-function Guest.new(worldContext, dishFactory)
+function Guest.new(worldContext: World.GameWorld, dishFactory: DishFactoryContract)
 	local context: GuestContext = {
 		worldWrapper = worldContext,
 		world = worldContext:GetWorld(),
@@ -264,11 +269,12 @@ function Guest.new(worldContext, dishFactory)
 		Create = createGuestNpc,
 		Component = context.component,
 		System = System.new(worldContext, context),
-		SetFedHandler = function(handler: (Player, jecs.Entity<nil>, jecs.Entity<nil>) -> number?)
-			context.onFed = handler
-		end,
-		SetExitedHandler = function(handler: (jecs.Entity<nil>) -> ())
-			context.onExited = handler
+		SetCallbacks = function(
+			onFed: ((Player, jecs.Entity<nil>, jecs.Entity<nil>) -> number?)?,
+			onExited: ((jecs.Entity<nil>) -> ())?
+		)
+			context.onFed = onFed or defaultOnFed
+			context.onExited = onExited or defaultOnExited
 		end,
 		CancelAll = function()
 			for entityId, guestState in context.world:query(context.component) do

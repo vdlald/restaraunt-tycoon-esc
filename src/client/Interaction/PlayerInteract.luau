@@ -2,7 +2,7 @@
 
 -- Зависимости
 local StarterPlayer = game:GetService("StarterPlayer")
-require(StarterPlayer.StarterPlayerScripts.Client.Interaction.FindTargerInteractable)
+require(StarterPlayer.StarterPlayerScripts.Client.Interaction.FindTargetInteractable)
 
 local State = require(StarterPlayer.StarterPlayerScripts.Client.State)
 local NetClient = require(StarterPlayer.StarterPlayerScripts.Client.NetClient)

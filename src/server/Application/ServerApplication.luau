@@ -26,12 +26,14 @@ export type ServerApplication = {
 function ServerApplication.new(context: GameContext.GameContext): ServerApplication
 	local gameCycle = context.GameCycle
 	local furnitureStore = FurnitureStore.new(context.Catalog.Furniture)
-	context.Building:SetCanFinalizePurchase(function()
-		return gameCycle:CanPurchaseFurniture()
-	end)
-	context.Building:SetPurchaseSpender(function(price: number)
-		return gameCycle:TrySpendCash(price)
-	end)
+	context.Building:SetPurchasePolicy({
+		CanFinalize = function()
+			return gameCycle:CanPurchaseFurniture()
+		end,
+		TrySpend = function(price: number)
+			return gameCycle:TrySpendCash(price)
+		end,
+	})
 
 	return {
 		Building = BuildingApplication.new(context.World, context.Building, gameCycle, furnitureStore),

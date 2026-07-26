@@ -1,16 +1,13 @@
 --!strict
 
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
-local Net = require(ReplicatedStorage.Shared.Net)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SharedGamePhase = require(ReplicatedStorage.Shared.GamePhase)
 
-local DataManager = require(ServerScriptService.Server.Player.DataManager)
-local Guest = require(ServerScriptService.Server.Game.Npc.Guest)
 local GameScene = require(ServerScriptService.Server.Game.GameCycle.GameScene)
-local DayEconomy = require(ServerScriptService.Server.Game.GameCycle.DayEconomy)
+local MatchReplication = require(ServerScriptService.Server.Application.Match.MatchReplication)
+local DayEconomy = require(ServerScriptService.Server.Domain.Match.DayEconomy)
 local MatchPhaseState = require(ServerScriptService.Server.Domain.Match.MatchPhaseState)
 local MatchRules = require(ServerScriptService.Server.Domain.Match.MatchRules)
 
@@ -31,33 +28,35 @@ export type DayReceipt = DayEconomy.DayReceipt
 local GameCycle = {}
 GameCycle.__index = GameCycle
 
-function GameCycle.new()
-	return setmetatable({
+function GameCycle.new(
+	worldWrapper,
+	buildingSystem,
+	catalog,
+	rewardService,
+	replication: MatchReplication.MatchReplication
+)
+	local self = setmetatable({
 		Phase = SharedGamePhase,
 		CountdownDuration = 3,
 		ResultDuration = 5,
 		state = MatchPhaseState.new(),
-		scene = nil :: GameScene.GameScene?,
+		scene = GameScene.new(worldWrapper, buildingSystem, catalog),
 		lastSentSecond = -1,
 		economy = DayEconomy.new(1),
 		owner = nil :: Player?,
-		worldWrapper = nil,
+		worldWrapper = worldWrapper,
+		rewardService = rewardService,
+		replication = replication,
 	}, GameCycle)
-end
-
-function GameCycle:Configure(context)
-	self.worldWrapper = context.World
-	self.scene = GameScene.new(context.World, context.Building, context.Catalog)
-	Guest.SetFedHandler(function(player, guestEntity, dishEntity)
+	catalog.Guest:SetCallbacks(function(player, guestEntity, dishEntity)
 		return self:OnGuestFed(player, guestEntity, dishEntity)
-	end)
-	Guest.SetExitedHandler(function(guestEntity)
+	end, function(guestEntity)
 		self:OnGuestExited(guestEntity)
 	end)
+	return self
 end
 
 function GameCycle:GetScene(): GameScene.GameScene
-	assert(self.scene, "GameCycle must be configured before use")
 	return self.scene
 end
 
@@ -110,10 +109,8 @@ end
 
 function GameCycle:CommitPendingExperience()
 	for player, experience in self.economy:DrainPendingExperience() do
-		if player.Parent == Players and experience > 0 then
-			DataManager:MutateData("completeDayExperience", player, function(data)
-				data.ExperienceEarned += experience
-			end)
+		if experience > 0 then
+			self.rewardService:GrantExperience(player, experience)
 		end
 	end
 end
@@ -130,18 +127,17 @@ function GameCycle:OnPlayerRemoving(player: Player)
 end
 
 function GameCycle:BroadcastState()
-	for _, player in Players:GetPlayers() do
-		self:SendState(player)
-	end
+	self.replication:BroadcastState(function(player)
+		return self:GetState(player)
+	end)
 end
 
 function GameCycle:SendState(player: Player)
-	local state = self:GetState(player)
-	Net.gameCycleState.sendTo(state, player)
+	self.replication:SendState(player, self:GetState(player))
 end
 
 function GameCycle:SendReceipt()
-	Net.dayReceipt.sendToAll(self.economy:GetReceipt())
+	self.replication:SendReceipt(self.economy:GetReceipt())
 end
 
 function GameCycle:CanBuild(): boolean
@@ -230,7 +226,6 @@ function GameCycle:RequestEndMatch(player: Player)
 end
 
 function GameCycle:OnGuestFed(player: Player, _: number, dishEntity: number): number?
-	assert(self.worldWrapper, "GameCycle must be configured before use")
 	local dish = self.worldWrapper:FindInstance(dishEntity)
 	if not dish then
 		return nil

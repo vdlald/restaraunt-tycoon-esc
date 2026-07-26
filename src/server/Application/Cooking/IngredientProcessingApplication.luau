@@ -10,15 +10,16 @@ local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
 local IngredientFactory = require(ServerScriptService.Server.Game.Ingredient.IngredientFactory)
 
 type GameplayCatalog = {
-	IngredientFactory: typeof(IngredientFactory.new(World, nil)),
+	IngredientFactory: typeof(IngredientFactory.new(World.new(), nil)),
 	IsPooled: (self: GameplayCatalog, entityId: jecs.Entity<nil>) -> boolean,
+	IsProcessableIngredient: (self: GameplayCatalog, entityId: jecs.Entity<nil>) -> boolean,
 }
 
 local IngredientProcessingApplication = {}
 IngredientProcessingApplication.__index = IngredientProcessingApplication
 
 export type IngredientProcessingApplication = {
-	worldWrapper: World.WorldWrapper,
+	worldWrapper: World.GameWorld,
 	gameCycle: typeof(GameCycle.new()),
 	catalog: GameplayCatalog,
 	StartProcessing: (self: IngredientProcessingApplication, player: Player, entityId: number) -> (),
@@ -26,7 +27,7 @@ export type IngredientProcessingApplication = {
 }
 
 function IngredientProcessingApplication.new(
-	worldWrapper: World.WorldWrapper,
+	worldWrapper: World.GameWorld,
 	gameCycle: typeof(GameCycle.new()),
 	catalog: GameplayCatalog
 ): IngredientProcessingApplication
@@ -38,8 +39,7 @@ function IngredientProcessingApplication.new(
 end
 
 function IngredientProcessingApplication:StartProcessing(player: Player, entityId: number)
-	local world = self.worldWrapper:GetWorld()
-	if not self.gameCycle:CanInteract() or not world:contains(entityId) then
+	if not self.gameCycle:CanInteract() or not self.worldWrapper:Contains(entityId) then
 		return
 	end
 
@@ -48,8 +48,8 @@ function IngredientProcessingApplication:StartProcessing(player: Player, entityI
 		return
 	end
 	if
-		not world:has(entityId, self.catalog.IngredientFactory:GetProcessableIngredientComponent())
-		or not world:has(entityId, self.worldWrapper:GetPlayerInteractableComponent())
+		not self.catalog:IsProcessableIngredient(entityId)
+		or not self.worldWrapper:IsPlayerInteractable(entityId)
 		or self.catalog:IsPooled(entityId)
 	then
 		return
@@ -68,13 +68,13 @@ function IngredientProcessingApplication:StartProcessing(player: Player, entityI
 		return
 	end
 
-	world:set(playerId, self.worldWrapper:GetIngredientProcessingComponent(), { Target = entityId })
+	self.worldWrapper:SetIngredientProcessing(playerId, entityId)
 end
 
 function IngredientProcessingApplication:StopProcessing(player: Player)
 	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
 	if playerId then
-		self.worldWrapper:GetWorld():remove(playerId, self.worldWrapper:GetIngredientProcessingComponent())
+		self.worldWrapper:ClearIngredientProcessing(playerId)
 	end
 end
 

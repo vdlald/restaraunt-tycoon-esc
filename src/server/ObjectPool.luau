@@ -1,7 +1,11 @@
--- Зависимости
+--!strict
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Class = require(ReplicatedStorage.Shared.Class)
+local World = require(ServerScriptService.Server.World)
+local EntityLifecycleSystem = require(ServerScriptService.Server.Systems.EntityLifecycleSystem)
 
 --
 -- Объявление
@@ -11,7 +15,12 @@ export type FactoryMethod = () -> (jecs.Entity<nil>, Instance)
 export type ReleaseCallback = (jecs.Entity<nil>) -> ()
 
 export type ObjectPool = {
-	new: (worldWrapper: any, lifecycleSystem: any, factoryMethod: FactoryMethod, initialSize: number) -> ObjectPool,
+	new: (
+		worldWrapper: World.GameWorld,
+		lifecycleSystem: typeof(EntityLifecycleSystem.new(World.new())),
+		factoryMethod: FactoryMethod,
+		initialSize: number
+	) -> ObjectPool,
 
 	Get: (self: ObjectPool) -> (jecs.Entity<nil>, Instance),
 	Release: (self: ObjectPool, jecs.Entity<nil>) -> (),
@@ -19,7 +28,12 @@ export type ObjectPool = {
 	IsPooled: (self: ObjectPool, entityId: jecs.Entity<nil>) -> boolean,
 }
 
-function ObjectPool.new(worldWrapper, lifecycleSystem, factoryMethod: FactoryMethod, initialSize: number): ObjectPool
+function ObjectPool.new(
+	worldWrapper: World.GameWorld,
+	lifecycleSystem: typeof(EntityLifecycleSystem.new(World.new())),
+	factoryMethod: FactoryMethod,
+	initialSize: number
+): ObjectPool
 	local self = setmetatable({}, ObjectPool)
 
 	self._worldWrapper = worldWrapper

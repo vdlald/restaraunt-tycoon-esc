@@ -1,7 +1,7 @@
 --!strict
 
 local ServerScriptService = game:GetService("ServerScriptService")
-local DayEconomy = require(ServerScriptService.Server.Game.GameCycle.DayEconomy)
+local DayEconomy = require(ServerScriptService.Server.Domain.Match.DayEconomy)
 
 describe("DayEconomy", function()
 	it("tracks match cash and rejects invalid purchases", function()

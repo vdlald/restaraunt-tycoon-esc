@@ -93,16 +93,46 @@ local function onPlayerRemoving(player: Player)
 end
 
 --
--- Обрабатываем игроков, которые уже в игре (на случай позднего запуска скрипта)
-for _, player in Players:GetPlayers() do
-	task.spawn(onPlayerAdded, player)
-end
-
---
 -- DataManager
 local DataManager = {}
 
-local onProfileDataChanged = function(event: PlayerDataChangedEvent) end
+local onProfileDataChanged = function(_: PlayerDataChangedEvent) end
+local started = false
+local playerAddedConnection: RBXScriptConnection? = nil
+local playerRemovingConnection: RBXScriptConnection? = nil
+
+function DataManager:Start()
+	if started then
+		return
+	end
+	started = true
+
+	for _, player in Players:GetPlayers() do
+		task.spawn(onPlayerAdded, player)
+	end
+	playerAddedConnection = Players.PlayerAdded:Connect(onPlayerAdded)
+	playerRemovingConnection = Players.PlayerRemoving:Connect(onPlayerRemoving)
+end
+
+function DataManager:Stop()
+	if not started then
+		return
+	end
+	started = false
+	if playerAddedConnection then
+		playerAddedConnection:Disconnect()
+		playerAddedConnection = nil
+	end
+	if playerRemovingConnection then
+		playerRemovingConnection:Disconnect()
+		playerRemovingConnection = nil
+	end
+
+	for player, profile in Profiles do
+		Profiles[player] = nil
+		profile:EndSession()
+	end
+end
 
 -- Подключить callback на изменение данных
 function DataManager:OnProfileDataChanged(handler: typeof(onProfileDataChanged))
@@ -198,10 +228,5 @@ function DataManager:MutateData(
 
 	return true
 end
-
---
--- Обработчики событий
-Players.PlayerAdded:Connect(onPlayerAdded)
-Players.PlayerRemoving:Connect(onPlayerRemoving)
 
 return DataManager

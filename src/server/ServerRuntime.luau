@@ -2,8 +2,7 @@
 
 local ServerScriptService = game:GetService("ServerScriptService")
 
--- DataManager must load before modules that depend on player profiles.
-require(ServerScriptService.Server.Player.DataManager)
+local DataManager = require(ServerScriptService.Server.Player.DataManager)
 
 local PartyServer = require(ServerScriptService.Server.Party.PartyServer)
 local MatchLifecycle = require(ServerScriptService.Server.MatchLifecycle)
@@ -16,8 +15,8 @@ local ServerApplication = require(ServerScriptService.Server.Application.ServerA
 local ServerRuntime = {}
 
 function ServerRuntime:Start()
+	DataManager:Start()
 	local context = GameContext.new()
-	context.GameCycle:Configure(context)
 	local applications = ServerApplication.new(context)
 	PartyServer:Start()
 	MatchLifecycle:Start(context)

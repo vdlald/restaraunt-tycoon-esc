@@ -14,8 +14,8 @@ local BuildingApplication = {}
 BuildingApplication.__index = BuildingApplication
 
 export type BuildingApplication = {
-	worldWrapper: World.WorldWrapper,
-	buildingSystem: typeof(BuildingSystem.new(World)),
+	worldWrapper: World.GameWorld,
+	buildingSystem: typeof(BuildingSystem.new(World.new())),
 	gameCycle: typeof(GameCycle.new()),
 	furnitureStore: typeof(FurnitureStore.new({})),
 	RequestModeToggle: (self: BuildingApplication, player: Player, enabled: boolean) -> (),
@@ -26,8 +26,8 @@ export type BuildingApplication = {
 }
 
 function BuildingApplication.new(
-	worldWrapper: World.WorldWrapper,
-	buildingSystem: typeof(BuildingSystem.new(World)),
+	worldWrapper: World.GameWorld,
+	buildingSystem: typeof(BuildingSystem.new(World.new())),
 	gameCycle: typeof(GameCycle.new()),
 	furnitureStore: typeof(FurnitureStore.new({}))
 ): BuildingApplication
@@ -46,8 +46,7 @@ function BuildingApplication:RequestModeToggle(player: Player, enabled: boolean)
 
 	local playerId = player:GetAttribute(Consts.Attributes.PlayerId)
 	if playerId then
-		local world = self.worldWrapper:GetWorld()
-		world:set(playerId, self.worldWrapper:GetWantsToToggleBuildingModeComponent(), { Enabled = enabled })
+		self.worldWrapper:RequestBuildingMode(playerId, enabled)
 	end
 end
 
@@ -57,10 +56,9 @@ function BuildingApplication:CancelMove(player: Player)
 		return
 	end
 
-	local world = self.worldWrapper:GetWorld()
 	self.buildingSystem:CancelMove(playerId)
 	Net.buildingModeState.sendTo({
-		enabled = world:has(playerId, self.worldWrapper:GetBuildingModeComponent()),
+		enabled = self.worldWrapper:IsBuildingModeEnabled(playerId),
 		movingEntity = 0,
 	}, player)
 end
@@ -86,8 +84,7 @@ function BuildingApplication:RotateGhost(player: Player, deltaYaw: number)
 		return
 	end
 
-	local world = self.worldWrapper:GetWorld()
-	if world:has(playerId, self.worldWrapper:GetBuildingMoveStateComponent()) then
+	if self.worldWrapper:IsBuildingMoveActive(playerId) then
 		self.buildingSystem:RequestRotation(playerId, deltaYaw)
 	end
 end

@@ -43,7 +43,7 @@ function MatchPhaseState.new(): MatchPhaseState
 		resultSecondsRemaining = 0,
 		guestsRemaining = 0,
 		guestsLeaving = 0,
-	}, MatchPhaseState) :: any
+	}, MatchPhaseState) :: MatchPhaseState
 end
 
 function MatchPhaseState:ResetLobby()

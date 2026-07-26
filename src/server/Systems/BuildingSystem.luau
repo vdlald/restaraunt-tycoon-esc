@@ -22,6 +22,11 @@ local Net = require(ReplicatedStorage.Shared.Net)
 -- Объявление системы
 local BuildingSystem = Class.defineClass("BuildingSystem", AbstractSystem)
 
+export type PurchasePolicy = {
+	CanFinalize: () -> boolean,
+	TrySpend: (price: number) -> boolean,
+}
+
 function BuildingSystem.new(worldWrapper)
 	local parent = AbstractSystem.new(worldWrapper)
 	local self = setmetatable(parent, BuildingSystem)
@@ -41,22 +46,13 @@ function BuildingSystem.new(worldWrapper)
 		capacity = 1,
 		refillPerSecond = 1 / Consts.BuildingGhostServerRateLimit,
 	})
-	self.canFinalizePurchase = function(): boolean
-		return false
-	end
-	self.trySpendPurchase = function(_: number): boolean
-		return false
-	end
+	self.purchasePolicy = nil :: PurchasePolicy?
 
 	return self
 end
 
-function BuildingSystem:SetCanFinalizePurchase(callback: () -> boolean)
-	self.canFinalizePurchase = callback
-end
-
-function BuildingSystem:SetPurchaseSpender(callback: (price: number) -> boolean)
-	self.trySpendPurchase = callback
+function BuildingSystem:SetPurchasePolicy(policy: PurchasePolicy)
+	self.purchasePolicy = policy
 end
 
 local function getHiddenFolder(): Folder
@@ -436,11 +432,12 @@ function BuildingSystem:attemptPlace(
 
 	local pendingPurchase = world:get(furnitureEntity, worldWrapper:GetPendingFurniturePurchaseComponent())
 	if pendingPurchase then
+		local purchasePolicy = self.purchasePolicy
 		if pendingPurchase.BuyerPlayerEntity ~= playerEntity then
 			Net.buildingPlacementResult.sendTo({ success = false }, playerView:GetPlayer())
 			return
 		end
-		if not self.canFinalizePurchase() then
+		if not purchasePolicy or not purchasePolicy.CanFinalize() then
 			self:CancelMove(playerEntity)
 			Net.furniturePurchaseResult.sendTo({
 				furnitureId = pendingPurchase.FurnitureId,
@@ -450,7 +447,7 @@ function BuildingSystem:attemptPlace(
 			return
 		end
 
-		if not self.trySpendPurchase(pendingPurchase.Price) then
+		if not purchasePolicy.TrySpend(pendingPurchase.Price) then
 			self:CancelMove(playerEntity)
 			Net.furniturePurchaseResult.sendTo({
 				furnitureId = pendingPurchase.FurnitureId,

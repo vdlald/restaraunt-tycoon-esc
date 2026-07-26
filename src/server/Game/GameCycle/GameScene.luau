@@ -2,15 +2,40 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local Consts = require(ReplicatedStorage.Shared.Consts)
+local World = require(ServerScriptService.Server.World)
+
+type BuildingController = {
+	CancelMove: (self: BuildingController, playerEntity: number) -> (),
+}
+
+type PlaceHolderController = {
+	Place: (self: PlaceHolderController, target: number, entity: number) -> (),
+}
+
+type SceneCatalog = {
+	Guest: {
+		CancelAll: () -> (),
+		Create: () -> (number, Model),
+	},
+	Furniture: {
+		Trashcan: { Create: () -> (number, Model) },
+		FlourBag: { Create: () -> (number, Model) },
+		MeatSteakFridge: { Create: () -> (number, Model) },
+		KitchenTable: { Create: () -> (number, Model, number) },
+	},
+	Plate: { Create: () -> (number, Model, number?) },
+	PlaceHolder: { System: PlaceHolderController },
+}
 
 export type GameScene = {
 	instanceRoots: { Instance },
 	hasStarterScene: boolean,
-	worldWrapper: any,
-	buildingSystem: any,
-	catalog: any,
+	worldWrapper: World.GameWorld,
+	buildingSystem: BuildingController,
+	catalog: SceneCatalog,
 	DisableBuildingForPlayers: (self: GameScene) -> (),
 	SetFurnitureAnchored: (self: GameScene, anchored: boolean) -> (),
 	Clear: (self: GameScene) -> (),
@@ -21,14 +46,18 @@ export type GameScene = {
 local GameScene = {}
 GameScene.__index = GameScene
 
-function GameScene.new(worldWrapper, buildingSystem, catalog): GameScene
+function GameScene.new(
+	worldWrapper: World.GameWorld,
+	buildingSystem: BuildingController,
+	catalog: SceneCatalog
+): GameScene
 	return setmetatable({
 		instanceRoots = {},
 		hasStarterScene = false,
 		worldWrapper = worldWrapper,
 		buildingSystem = buildingSystem,
 		catalog = catalog,
-	}, GameScene) :: any
+	}, GameScene) :: GameScene
 end
 
 local function track(self: GameScene, instance: Instance): Instance

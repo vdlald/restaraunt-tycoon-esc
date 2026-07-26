@@ -44,7 +44,7 @@ function DayEconomy.new(day: number): DayEconomy
 		cash = 0,
 		receipt = createReceipt(day),
 		pendingExperience = {},
-	}, DayEconomy) :: any
+	}, DayEconomy) :: DayEconomy
 end
 
 function DayEconomy:StartMatch(startingCash: number)
