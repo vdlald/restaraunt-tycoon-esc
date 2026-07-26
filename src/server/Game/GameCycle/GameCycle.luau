@@ -7,6 +7,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Net = require(ReplicatedStorage.Shared.Net)
 local SharedGamePhase = require(ReplicatedStorage.Shared.GamePhase)
 
+local DataManager = require(ServerScriptService.Server.Player.DataManager)
 local Guest = require(ServerScriptService.Server.Game.Npc.Guest)
 local GameScene = require(ServerScriptService.Server.Game.GameCycle.GameScene)
 local DayEconomy = require(ServerScriptService.Server.Game.GameCycle.DayEconomy)
@@ -104,7 +105,13 @@ function GameCycle:SetOwner(owner: Player?)
 end
 
 function GameCycle:CommitPendingExperience()
-	self.economy:CommitPendingExperience()
+	for player, experience in self.economy:DrainPendingExperience() do
+		if player.Parent == Players and experience > 0 then
+			DataManager:MutateData("completeDayExperience", player, function(data)
+				data.ExperienceEarned += experience
+			end)
+		end
+	end
 end
 
 function GameCycle:EndMatch()
@@ -139,6 +146,10 @@ end
 
 function GameCycle:CanPurchaseFurniture(): boolean
 	return self.state:CanPurchaseFurniture()
+end
+
+function GameCycle:IsPurchaseCountdownActive(): boolean
+	return self.state.countdownTarget ~= nil
 end
 
 function GameCycle:CanCook(): boolean

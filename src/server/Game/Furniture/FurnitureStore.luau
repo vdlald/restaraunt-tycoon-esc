@@ -5,8 +5,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local FurnitureCatalog = require(ReplicatedStorage.Shared.FurnitureCatalog)
 local Net = require(ReplicatedStorage.Shared.Net)
-local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
-
 local Chair = require(ServerScriptService.Server.Game.Furniture.Chair)
 local DiningTable = require(ServerScriptService.Server.Game.Furniture.DiningTable)
 local KitchenTable = require(ServerScriptService.Server.Game.Furniture.KitchenTable)
@@ -33,7 +31,7 @@ local function sendResult(player: Player, furnitureId: string, success: boolean,
 	}, player)
 end
 
-function FurnitureStore:RequestPurchase(player: Player, furnitureId: string, buildingSystem, worldWrapper)
+function FurnitureStore:RequestPurchase(player: Player, furnitureId: string, buildingSystem, worldWrapper, gameCycle)
 	local world = worldWrapper:GetWorld()
 	local product = FurnitureCatalog:GetProduct(furnitureId)
 	if not product then
@@ -41,11 +39,11 @@ function FurnitureStore:RequestPurchase(player: Player, furnitureId: string, bui
 		return
 	end
 
-	if GameCycle:GetPhase() ~= GameCycle.Phase.Preparation then
+	if gameCycle:GetPhase() ~= gameCycle.Phase.Preparation then
 		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.NotPreparation)
 		return
 	end
-	if GameCycle.countdownTarget then
+	if gameCycle:IsPurchaseCountdownActive() then
 		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.CountdownActive)
 		return
 	end
@@ -59,7 +57,7 @@ function FurnitureStore:RequestPurchase(player: Player, furnitureId: string, bui
 		return
 	end
 
-	if GameCycle:GetCash() < product.Price then
+	if gameCycle:GetCash() < product.Price then
 		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.InsufficientCash)
 		return
 	end

@@ -6,13 +6,13 @@ local Net = require(ReplicatedStorage.Shared.Net)
 
 local MatchHandler = {}
 
-function MatchHandler.Start(gameCycle)
+function MatchHandler.Start(application)
 	Net.gamePhaseToggle.listen(function(_: table, player: Player)
-		gameCycle:RequestPhaseToggle(player)
+		application:RequestPhaseToggle(player)
 	end)
 
 	Net.endMatchRequest.listen(function(_: table, player: Player)
-		gameCycle:RequestEndMatch(player)
+		application:RequestEndMatch(player)
 	end)
 end
 

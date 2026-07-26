@@ -10,7 +10,14 @@ local BuildingSystem = require(ServerScriptService.Server.Systems.BuildingSystem
 
 local GameContext = {}
 
-function GameContext.new()
+export type GameContext = {
+	World: World.WorldWrapper,
+	Building: typeof(BuildingSystem),
+	Systems: typeof(SystemRegistry.new()),
+	Interactions: InteractionDispatcher.InteractionDispatcher,
+}
+
+function GameContext.new(): GameContext
 	return {
 		World = World,
 		Building = BuildingSystem,

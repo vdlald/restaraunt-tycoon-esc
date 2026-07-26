@@ -53,4 +53,18 @@ describe("DayEconomy", function()
 
 		player:Destroy()
 	end)
+
+	it("drains pending experience without updating player data", function()
+		local economy = DayEconomy.new(1)
+		local player = Instance.new("Player")
+
+		economy:RecordDish(player, "Pie", 20)
+		economy:RecordDish(player, "Steak", 40)
+
+		local pendingExperience = economy:DrainPendingExperience()
+		expect(pendingExperience[player]).to.equal(60)
+		expect(next(economy:DrainPendingExperience())).to.equal(nil)
+
+		player:Destroy()
+	end)
 end)
