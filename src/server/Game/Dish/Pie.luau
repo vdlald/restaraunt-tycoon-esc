@@ -43,8 +43,8 @@ local Dish = DishFactory:DefineDish({
 			return nil
 		end
 
-		world:set(rawPieEntity, WorldWrapper:GetReleaseTargetComponent())
-		world:set(choppedMeatEntity, WorldWrapper:GetReleaseTargetComponent())
+		WorldWrapper:RequestDestroy(rawPieEntity)
+		WorldWrapper:RequestDestroy(choppedMeatEntity)
 
 		return self.DishPool:Get()
 	end,

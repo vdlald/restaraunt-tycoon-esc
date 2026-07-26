@@ -4,7 +4,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Class = require(ReplicatedStorage.Shared.Class)
-local Consts = require(ReplicatedStorage.Shared.Consts)
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Types)
@@ -45,46 +44,20 @@ function DishSystem.new(
 	return self
 end
 
-function DishSystem:Process(_: number)
-	-- Обрабатываем объединение ингредиентов
-	self:query(WorldWrapper:GetPlayerInteractComponent())
-		:with(IngredientFactory:GetAbstractIngredientComponent())
-		:forEach(function(ingredientEntity, intent)
-			if not ingredientEntity then
-				return
-			end
-			local keyCode: Enum.KeyCode = intent.KeyCode
-			local playerView: Types.PlayerView = intent.PlayerView
-			local processed = self:combineIngredients(ingredientEntity, playerView, keyCode)
-			if processed then
-				world:remove(ingredientEntity, WorldWrapper:GetPlayerInteractComponent())
-			end
-		end)
+function DishSystem:Process(_: number) end
 
-	-- Обрабатываем добавление игредиента в блюдо
-	self:query(WorldWrapper:GetPlayerInteractComponent())
-		:with(self.DishComponent)
-		:forEach(function(dishEntity: jecs.Entity<nil>, intent)
-			if not dishEntity then
-				return
-			end
-			local keyCode: Enum.KeyCode = intent.KeyCode
-			local playerView: Types.PlayerView = intent.PlayerView
-			local processed = self:combineDish(dishEntity, playerView, keyCode)
-			if processed then
-				world:remove(dishEntity, WorldWrapper:GetPlayerInteractComponent())
-			end
-		end)
-
-	self:query(WorldWrapper:GetReleaseTargetComponent())
-		:with(self.DishComponent)
-		:forEach(function(entityId: jecs.Entity<nil>, _)
-			if not entityId then
-				return
-			end
-			world:remove(entityId, WorldWrapper:GetReleaseTargetComponent())
-			self.DishPool:Release(entityId)
-		end)
+function DishSystem:HandleInteraction(
+	target: jecs.Entity<nil>,
+	playerView: Types.PlayerView,
+	keyCode: Enum.KeyCode
+): boolean
+	if world:has(target, IngredientFactory:GetAbstractIngredientComponent()) then
+		return self:combineIngredients(target, playerView, keyCode)
+	end
+	if world:has(target, self.DishComponent) then
+		return self:combineDish(target, playerView, keyCode)
+	end
+	return false
 end
 
 function DishSystem:combineIngredients(target: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
@@ -158,8 +131,6 @@ function DishFactory:DefineDish(DishForm: DishForm)
 
 	module.Pool = ObjectPool.new(function()
 		local instance: Tool = DishForm.Template:Clone()
-		instance:AddTag(Consts.Tags.Interactable)
-
 		local entity = WorldWrapper:RegisterInstance(instance, DishForm.DishName)
 		world:set(entity, abstractDishComponent)
 		world:set(entity, DishComponent)

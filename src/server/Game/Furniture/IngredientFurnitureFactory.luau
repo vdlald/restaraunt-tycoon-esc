@@ -5,7 +5,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Class = require(ReplicatedStorage.Shared.Class)
 local Utils = require(ReplicatedStorage.Shared.Utils)
-local Consts = require(ReplicatedStorage.Shared.Consts)
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Types)
@@ -36,7 +35,6 @@ function IngredientFurnitureSystem.new(
 	local parent = AbstractSystem.new()
 	local self = setmetatable(parent, IngredientFurnitureSystem)
 
-	self.cachedQuery = world:query(WorldWrapper:GetPlayerInteractComponent()):with(furnitureComponent):cached()
 	self.furnitureComponent = furnitureComponent
 	self.ingredientPool = ingredientPool
 	self.ingredientComponent = ingredientComponent
@@ -44,30 +42,21 @@ function IngredientFurnitureSystem.new(
 	return self
 end
 
-function IngredientFurnitureSystem:Process(_: number)
-	self:query(self.furnitureComponent, WorldWrapper:GetReleaseTargetComponent()):forEach(function(entity)
-		if not entity then
-			return
-		end
-		local instance = WorldWrapper:FindInstance(entity)
-		world:remove(entity, WorldWrapper:GetReleaseTargetComponent())
-		world:delete(entity)
-		if instance then
-			instance:Destroy()
-		end
-		return entity
-	end)
+function IngredientFurnitureSystem:Process(_: number) end
 
-	for entityId, intent in self.cachedQuery do
-		world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
-
-		local keyCode: Enum.KeyCode = intent.KeyCode
-		local playerView: Types.PlayerView = intent.PlayerView
-
-		Utils:safeCall(`{self.ClassName}:processPlayerInteract`, function()
-			self:processPlayerInteract(entityId, playerView, keyCode)
-		end)
+function IngredientFurnitureSystem:HandleInteraction(
+	entityId: jecs.Entity<nil>,
+	playerView: Types.PlayerView,
+	keyCode: Enum.KeyCode
+): boolean
+	if not world:has(entityId, self.furnitureComponent) then
+		return false
 	end
+
+	Utils:safeCall(`{self.ClassName}:processPlayerInteract`, function()
+		self:processPlayerInteract(entityId, playerView, keyCode)
+	end)
+	return true
 end
 
 function IngredientFurnitureSystem:processPlayerInteract(
@@ -89,7 +78,7 @@ function IngredientFurnitureSystem:processPlayerInteract(
 
 	if world:has(equippedTool, self.ingredientComponent) then
 		playerView:TakeFromHands()
-		world:set(equippedTool, WorldWrapper:GetReleaseTargetComponent())
+		WorldWrapper:RequestDestroy(equippedTool)
 	end
 end
 
@@ -106,9 +95,6 @@ function IngredientFurnitureFactory:DefineFurniture(form: IngredientFurnitureFor
 
 	module.Create = function(): (jecs.Entity<nil>, Instance)
 		local instance: Instance = form.Template:Clone()
-		instance:AddTag(Consts.Tags.Interactable)
-		instance:AddTag(Consts.Tags.BuildingMoveable)
-
 		local entity = WorldWrapper:RegisterInstance(instance, form.FurnitureName)
 		world:set(entity, furnitureComponent)
 		world:set(entity, WorldWrapper:GetPlayerInteractableComponent())

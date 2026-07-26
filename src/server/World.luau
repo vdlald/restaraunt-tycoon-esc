@@ -28,14 +28,16 @@ local instanceComponent = world:component() :: InstanceComponent
 export type PlayerInteractableComponent = jecs.Id<nil>
 local playerInteractableComponent = world:component() :: PlayerInteractableComponent
 
--- Пользователь хочет взаимодействовать, позволяет провалидировать возможность взаимодействия
-export type WantsToInteractComponent = jecs.Id<{ Target: jecs.Entity<nil>, KeyCode: Enum.KeyCode }>
-local wantsToInteractComponent = world:component() :: WantsToInteractComponent
+-- Запросы взаимодействия принадлежат игроку. Очередь не позволяет потерять
+-- несколько нажатий до следующего тика симуляции.
+export type InteractionRequest = {
+	Target: jecs.Entity<nil>,
+	KeyCode: Enum.KeyCode,
+}
+export type InteractionQueueComponent = jecs.Id<{ Requests: { InteractionRequest } }>
+local interactionQueueComponent = world:component() :: InteractionQueueComponent
 
 -- Instance получил запрос на взаимодействие
-export type PlayerInteractComponent = jecs.Id<{ PlayerView: Types.PlayerView, KeyCode: Enum.KeyCode }>
-local playerInteractComponent = world:component() :: PlayerInteractComponent
-
 -- Игрок удерживает кнопку обработки ингредиента
 export type IngredientProcessingComponent = jecs.Id<{ Target: jecs.Entity<nil> }>
 local ingredientProcessingComponent = world:component() :: IngredientProcessingComponent
@@ -48,9 +50,9 @@ local ingredientProgressComponent = world:component() :: IngredientProgressCompo
 export type ReplaceTargetComponent = jecs.Id<{ NewTarget: jecs.Entity<nil> }>
 local replaceTargetComponent = world:component() :: ReplaceTargetComponent
 
--- ReleaseTarget - вызывает destroy или возвращает в пул
-export type ReleaseTargetComponent = jecs.Id<nil>
-local releaseTargetComponent = world:component() :: ReleaseTargetComponent
+-- DestroyRequested - запрашивает передачу сущности в EntityLifecycleSystem.
+export type DestroyRequestedComponent = jecs.Id<nil>
+local destroyRequestedComponent = world:component() :: DestroyRequestedComponent
 
 -- BuildingMode - игрок в режиме строительства
 export type BuildingModeComponent = jecs.Id<nil>
@@ -95,6 +97,33 @@ local pendingFurniturePurchaseComponent = world:component() :: PendingFurnitureP
 export type ChildEntitiesComponent = jecs.Id<{ Entities: { jecs.Entity<nil> } }>
 local childEntitiesComponent = world:component() :: ChildEntitiesComponent
 
+-- Presentation tags are projections of ECS capabilities. Gameplay reads the
+-- components; tags only expose those capabilities to Roblox clients.
+local function setPresentationTag(entityId: jecs.Entity<nil>, tag: string, enabled: boolean)
+	local instanceData = world:get(entityId, instanceComponent)
+	if not instanceData then
+		return
+	end
+	if enabled then
+		instanceData.Instance:AddTag(tag)
+	else
+		instanceData.Instance:RemoveTag(tag)
+	end
+end
+
+world:set(playerInteractableComponent, jecs.OnAdd, function(entity)
+	setPresentationTag(entity, Consts.Tags.Interactable, true)
+end)
+world:set(playerInteractableComponent, jecs.OnRemove, function(entity)
+	setPresentationTag(entity, Consts.Tags.Interactable, false)
+end)
+world:set(buildingMovableComponent, jecs.OnAdd, function(entity)
+	setPresentationTag(entity, Consts.Tags.BuildingMoveable, true)
+end)
+world:set(buildingMovableComponent, jecs.OnRemove, function(entity)
+	setPresentationTag(entity, Consts.Tags.BuildingMoveable, false)
+end)
+
 --
 -- Объявление WorldWrapper
 --
@@ -105,16 +134,17 @@ export type WorldWrapper = {
 	GetPlayerComponent: (self: WorldWrapper) -> PlayerComponent,
 	GetInstanceComponent: (self: WorldWrapper) -> InstanceComponent,
 
-	GetPlayerInteractComponent: (self: WorldWrapper) -> PlayerInteractComponent,
 	GetIngredientProcessingComponent: (self: WorldWrapper) -> IngredientProcessingComponent,
 	GetIngredientProgressComponent: (self: WorldWrapper) -> IngredientProgressComponent,
-	GetWantsToInteractComponent: (self: WorldWrapper) -> WantsToInteractComponent,
+	GetInteractionQueueComponent: (self: WorldWrapper) -> InteractionQueueComponent,
 
 	GetPlayerInteractableComponent: (self: WorldWrapper) -> PlayerInteractableComponent,
 
 	GetReplaceTargetComponent: (self: WorldWrapper) -> ReplaceTargetComponent,
 
-	GetReleaseTargetComponent: (self: WorldWrapper) -> ReleaseTargetComponent,
+	GetDestroyRequestedComponent: (self: WorldWrapper) -> DestroyRequestedComponent,
+	RequestDestroy: (self: WorldWrapper, entityId: jecs.Entity<nil>) -> (),
+	EnqueueInteraction: (self: WorldWrapper, playerId: jecs.Entity<nil>, request: InteractionRequest) -> (),
 
 	GetBuildingModeComponent: (self: WorldWrapper) -> BuildingModeComponent,
 	GetWantsToToggleBuildingModeComponent: (self: WorldWrapper) -> WantsToToggleBuildingModeComponent,
@@ -150,10 +180,6 @@ function WorldWrapper:GetInstanceComponent(): InstanceComponent
 	return instanceComponent
 end
 
-function WorldWrapper:GetPlayerInteractComponent(): PlayerInteractComponent
-	return playerInteractComponent
-end
-
 function WorldWrapper:GetIngredientProcessingComponent(): IngredientProcessingComponent
 	return ingredientProcessingComponent
 end
@@ -162,8 +188,8 @@ function WorldWrapper:GetIngredientProgressComponent(): IngredientProgressCompon
 	return ingredientProgressComponent
 end
 
-function WorldWrapper:GetWantsToInteractComponent(): WantsToInteractComponent
-	return wantsToInteractComponent
+function WorldWrapper:GetInteractionQueueComponent(): InteractionQueueComponent
+	return interactionQueueComponent
 end
 
 function WorldWrapper:GetPlayerInteractableComponent(): PlayerInteractableComponent
@@ -174,8 +200,22 @@ function WorldWrapper:GetReplaceTargetComponent(): ReplaceTargetComponent
 	return replaceTargetComponent
 end
 
-function WorldWrapper:GetReleaseTargetComponent(): ReleaseTargetComponent
-	return releaseTargetComponent
+function WorldWrapper:GetDestroyRequestedComponent(): DestroyRequestedComponent
+	return destroyRequestedComponent
+end
+
+function WorldWrapper:RequestDestroy(entityId: jecs.Entity<nil>)
+	world:set(entityId, destroyRequestedComponent)
+end
+
+function WorldWrapper:EnqueueInteraction(playerId: jecs.Entity<nil>, request: InteractionRequest)
+	local queue = world:get(playerId, interactionQueueComponent)
+	local requests = if queue then table.clone(queue.Requests) else {}
+	if #requests >= Consts.MaxQueuedInteractionRequests then
+		return
+	end
+	table.insert(requests, request)
+	world:set(playerId, interactionQueueComponent, { Requests = requests })
 end
 
 function WorldWrapper:GetBuildingModeComponent(): BuildingModeComponent

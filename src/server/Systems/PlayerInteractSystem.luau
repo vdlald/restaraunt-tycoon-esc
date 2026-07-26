@@ -8,52 +8,59 @@ local Class = require(ReplicatedStorage.Shared.Class)
 local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Types)
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
-
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
+local InteractionDispatcher = require(ServerScriptService.Server.Systems.InteractionDispatcher)
 
 -- Объявление системы
 local PlayerInteractSystem = Class.defineClass("PlayerInteractSystem", AbstractSystem)
 
-function PlayerInteractSystem.new()
+function PlayerInteractSystem.new(worldWrapper, dispatcher: InteractionDispatcher.InteractionDispatcher)
 	local parent = AbstractSystem.new()
 	local self = setmetatable(parent, PlayerInteractSystem)
+	self.worldWrapper = worldWrapper
+	self.dispatcher = dispatcher
+	self.cachedQuery = worldWrapper
+		:GetWorld()
+		:query(worldWrapper:GetPlayerComponent(), worldWrapper:GetInteractionQueueComponent())
+		:cached()
 	return self
 end
 
-local cachedQuery = world:query(WorldWrapper:GetPlayerComponent(), WorldWrapper:GetWantsToInteractComponent()):cached()
-
 -- Процессинг
 function PlayerInteractSystem:Process(_: number)
-	for playerId, playerComponent, intent in cachedQuery do
-		local target: jecs.Entity<nil> = intent.Target
-		local keyCode: Enum.KeyCode = intent.KeyCode
-		local playerView: Types.PlayerView = playerComponent.PlayerView
-
-		local ok, err = pcall(self.processPlayerInteract, self, playerView, target, keyCode)
-		if not ok then
-			warn(`PlayerInteractSystem.processPlayerInteract failed: {err}`)
+	local worldWrapper = self.worldWrapper
+	local world = worldWrapper:GetWorld()
+	local reservedTargets = {} :: { [jecs.Entity<nil>]: boolean }
+	for playerId, playerComponent, queue in self.cachedQuery do
+		local requests = queue.Requests
+		local request = requests[1]
+		if not request then
+			world:remove(playerId, worldWrapper:GetInteractionQueueComponent())
+			continue
 		end
 
-		world:remove(playerId, WorldWrapper:GetWantsToInteractComponent())
+		-- Dispatch at most one request per target per tick so no interaction can
+		-- overwrite another handler's work during this frame.
+		if reservedTargets[request.Target] then
+			continue
+		end
+		reservedTargets[request.Target] = true
+
+		local target: jecs.Entity<nil> = request.Target
+		local keyCode: Enum.KeyCode = request.KeyCode
+		local playerView: Types.PlayerView = playerComponent.PlayerView
+
+		local ok, err = pcall(self.dispatcher.Dispatch, self.dispatcher, target, playerView, keyCode)
+		if not ok then
+			warn(`PlayerInteractSystem.Dispatch failed: {err}`)
+		end
+
+		table.remove(requests, 1)
+		if #requests == 0 then
+			world:remove(playerId, worldWrapper:GetInteractionQueueComponent())
+		else
+			world:set(playerId, worldWrapper:GetInteractionQueueComponent(), { Requests = requests })
+		end
 	end
 end
 
-function PlayerInteractSystem:Clear()
-	self:query(WorldWrapper:GetPlayerInteractComponent()):forEach(function(entity, _)
-		if not entity then
-			return
-		end
-		world:remove(entity, WorldWrapper:GetPlayerInteractComponent())
-	end)
-end
-
-function PlayerInteractSystem:processPlayerInteract(
-	playerView: Types.PlayerView,
-	target: jecs.Entity<nil>,
-	keyCode: Enum.KeyCode
-)
-	world:set(target, WorldWrapper:GetPlayerInteractComponent(), { PlayerView = playerView, KeyCode = keyCode })
-end
-
-return PlayerInteractSystem.new()
+return PlayerInteractSystem

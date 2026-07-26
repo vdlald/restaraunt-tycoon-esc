@@ -1,5 +1,6 @@
 local Consts = {
 	InteractablePlayerDistance = 4,
+	MaxQueuedInteractionRequests = 8,
 	IngredientProcessDurationSeconds = 3,
 	IngredientProcessStateInterval = 0.1,
 	InteractableAllowedKeys = {

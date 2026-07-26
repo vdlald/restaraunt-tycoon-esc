@@ -5,21 +5,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Net = require(ReplicatedStorage.Shared.Net)
-local Consts = require(ReplicatedStorage.Shared.Consts)
 local SharedGamePhase = require(ReplicatedStorage.Shared.GamePhase)
 
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
-local BuildingSystem = require(ServerScriptService.Server.Systems.BuildingSystem)
-local DataManager = require(ServerScriptService.Server.Player.DataManager)
-
 local Guest = require(ServerScriptService.Server.Game.Npc.Guest)
-local FlourBag = require(ServerScriptService.Server.Game.Furniture.FlourBag)
-local MeatSteakFridge = require(ServerScriptService.Server.Game.Furniture.MeatSteakFridge)
-local Trashcan = require(ServerScriptService.Server.Game.Furniture.Trashcan)
-local KitchenTable = require(ServerScriptService.Server.Game.Furniture.KitchenTable)
-local Plate = require(ServerScriptService.Server.Game.Items.Plate)
-local PlaceHolder = require(ServerScriptService.Server.Components.PlaceHolder)
+local GameScene = require(ServerScriptService.Server.Game.GameCycle.GameScene)
+local DayEconomy = require(ServerScriptService.Server.Game.GameCycle.DayEconomy)
+local MatchPhaseState = require(ServerScriptService.Server.Game.GameCycle.MatchPhaseState)
 
 export type GamePhase = SharedGamePhase.GamePhase
 export type GameCycleState = {
@@ -32,17 +23,8 @@ export type GameCycleState = {
 	canEndMatch: boolean,
 }
 
-export type ReceiptDish = {
-	dishName: string,
-	count: number,
-	earned: number,
-}
-
-export type DayReceipt = {
-	day: number,
-	dishes: { ReceiptDish },
-	total: number,
-}
+export type ReceiptDish = DayEconomy.ReceiptDish
+export type DayReceipt = DayEconomy.DayReceipt
 
 local GameCycle = {
 	Phase = SharedGamePhase,
@@ -53,25 +35,25 @@ local GameCycle = {
 	},
 }
 
-GameCycle.phase = GameCycle.Phase.Lobby
-GameCycle.day = 1
-GameCycle.countdownSeconds = 0
-GameCycle.serviceSecondsRemaining = 0
-GameCycle.guestsRemaining = 0
-GameCycle.guestsLeaving = 0
-GameCycle.countdownTarget = nil :: GamePhase?
-GameCycle.resultSecondsRemaining = 0
-GameCycle.sceneInstances = {} :: { Instance }
-GameCycle.hasStarterScene = false
+GameCycle.state = MatchPhaseState.new()
+GameCycle.scene = nil :: GameScene.GameScene?
 GameCycle.lastSentSecond = -1
-GameCycle.currentReceipt = {
-	day = 1,
-	dishes = {},
-	total = 0,
-} :: DayReceipt
-GameCycle.cash = 0
+GameCycle.economy = DayEconomy.new(1)
 GameCycle.owner = nil :: Player?
-GameCycle.pendingExperience = {} :: { [Player]: number }
+GameCycle.worldWrapper = nil
+
+function GameCycle:Configure(context)
+	self.worldWrapper = context.World
+	self.scene = GameScene.new(context.World, context.Building)
+	context.Building:SetCanFinalizePurchase(function()
+		return self:CanPurchaseFurniture()
+	end)
+end
+
+function GameCycle:GetScene(): GameScene.GameScene
+	assert(self.scene, "GameCycle must be configured before use")
+	return self.scene
+end
 
 function GameCycle:GetDayProgression(day: number): (number, number)
 	local guests = day + 2
@@ -80,39 +62,40 @@ end
 
 function GameCycle:GetState(player: Player?): GameCycleState
 	return {
-		phase = self.phase,
-		day = self.day,
-		countdownSeconds = math.max(0, math.ceil(self.countdownSeconds)),
-		guestsRemaining = self.guestsRemaining,
-		serviceSecondsRemaining = math.max(0, math.ceil(self.serviceSecondsRemaining)),
-		cash = self.cash,
-		canEndMatch = player ~= nil
-			and player == self.owner
-			and (self.phase == self.Phase.Preparation or self.phase == self.Phase.Service),
+		phase = self.state.phase,
+		day = self.state.day,
+		countdownSeconds = math.max(0, math.ceil(self.state.countdownSeconds)),
+		guestsRemaining = self.state.guestsRemaining,
+		serviceSecondsRemaining = math.max(0, math.ceil(self.state.serviceSecondsRemaining)),
+		cash = self.economy:GetCash(),
+		canEndMatch = player ~= nil and player == self.owner and self.state:CanEndMatch(),
 	}
 end
 
+function GameCycle:GetPhase(): GamePhase
+	return self.state.phase
+end
+
 function GameCycle:GetCash(): number
-	return self.cash
+	return self.economy:GetCash()
 end
 
 function GameCycle:AddCash(amount: number)
-	self.cash += amount
+	self.economy:AddCash(amount)
 	self:BroadcastState()
 end
 
 function GameCycle:TrySpendCash(amount: number): boolean
-	if amount < 0 or self.cash < amount then
+	if not self.economy:TrySpendCash(amount) then
 		return false
 	end
-	self.cash -= amount
 	self:BroadcastState()
 	return true
 end
 
 function GameCycle:StartNewMatch(owner: Player)
 	self.owner = owner
-	self.cash = 20
+	self.economy:StartMatch(20)
 end
 
 function GameCycle:SetOwner(owner: Player?)
@@ -121,18 +104,11 @@ function GameCycle:SetOwner(owner: Player?)
 end
 
 function GameCycle:CommitPendingExperience()
-	for player, experience in self.pendingExperience do
-		if player.Parent == Players and experience > 0 then
-			DataManager:MutateData("completeDayExperience", player, function(data)
-				data.ExperienceEarned += experience
-			end)
-		end
-	end
-	table.clear(self.pendingExperience)
+	self.economy:CommitPendingExperience()
 end
 
 function GameCycle:EndMatch()
-	table.clear(self.pendingExperience)
+	self.economy:DiscardPendingExperience()
 	self:EnterLobby()
 end
 
@@ -154,213 +130,64 @@ function GameCycle:SendState(player: Player)
 end
 
 function GameCycle:SendReceipt()
-	Net.dayReceipt.sendToAll(self.currentReceipt)
+	Net.dayReceipt.sendToAll(self.economy:GetReceipt())
 end
 
 function GameCycle:CanBuild(): boolean
-	return self.phase == self.Phase.Preparation
+	return self.state:CanBuild()
 end
 
 function GameCycle:CanPurchaseFurniture(): boolean
-	return self.phase == self.Phase.Preparation and self.countdownTarget == nil
+	return self.state:CanPurchaseFurniture()
 end
 
 function GameCycle:CanCook(): boolean
-	return self.phase == self.Phase.Preparation or self.phase == self.Phase.Service
+	return self.state:CanCook()
 end
 
 function GameCycle:CanFeedGuests(): boolean
-	return self.phase == self.Phase.Service
+	return self.state:CanFeedGuests()
 end
 
 function GameCycle:CanInteract(): boolean
 	return self:CanCook()
 end
 
-local function track(self, instance: Instance)
-	table.insert(self.sceneInstances, instance)
-	return instance
-end
-
-function GameCycle:DisableBuildingForPlayers()
-	for playerEntity in world:query(WorldWrapper:GetWantsToToggleBuildingModeComponent()) do
-		world:remove(playerEntity, WorldWrapper:GetWantsToToggleBuildingModeComponent())
-	end
-
-	for _, player in Players:GetPlayers() do
-		local playerEntity = player:GetAttribute(Consts.Attributes.PlayerId)
-		if playerEntity then
-			BuildingSystem:CancelMove(playerEntity)
-			world:remove(playerEntity, WorldWrapper:GetBuildingModeComponent())
-			world:remove(playerEntity, WorldWrapper:GetBuildingGhostTargetComponent())
-		end
-	end
-end
-
-function GameCycle:SetFurnitureAnchored(anchored: boolean)
-	for furnitureEntity in world:query(WorldWrapper:GetBuildingMovableComponent()) do
-		local furniture = WorldWrapper:FindInstance(furnitureEntity)
-		if furniture then
-			local parts = furniture:GetDescendants()
-			table.insert(parts, furniture)
-			for _, part in parts do
-				if part:IsA("BasePart") then
-					part.Anchored = anchored
-				end
-			end
-		end
-	end
-end
-
-function GameCycle:ClearScene()
-	self:DisableBuildingForPlayers()
-	Guest.CancelAll()
-	for _, player in Players:GetPlayers() do
-		local character = player.Character
-		if character then
-			for _, tool in character:GetChildren() do
-				if tool:IsA("Tool") and tool:GetAttribute(Consts.Attributes.EntityId) then
-					tool.Parent = nil
-				end
-			end
-		end
-		for _, tool in player.Backpack:GetChildren() do
-			if tool:IsA("Tool") and tool:GetAttribute(Consts.Attributes.EntityId) then
-				tool.Parent = nil
-			end
-		end
-	end
-
-	-- Все сущности игрового мира регистрируются через WorldWrapper. Снимаем с карты
-	-- также ингредиенты и блюда, которые были созданы во время обслуживания.
-	local sceneEntities = {}
-	for entity, instanceData in world:query(WorldWrapper:GetInstanceComponent()) do
-		if instanceData.Instance.Parent then
-			instanceData.Instance.Parent = nil
-		end
-		table.insert(sceneEntities, entity)
-	end
-	for _, entity in sceneEntities do
-		world:set(entity, WorldWrapper:GetReleaseTargetComponent())
-	end
-
-	for _, instance in self.sceneInstances do
-		if instance.Parent then
-			instance.Parent = nil
-		end
-	end
-	table.clear(self.sceneInstances)
-	self.hasStarterScene = false
-	self.guestsRemaining = 0
-	self.guestsLeaving = 0
-end
-
-function GameCycle:CreateStarterScene()
-	local _, trashcan = Trashcan.Create()
-	track(self, trashcan).Parent = workspace
-	trashcan:SetPrimaryPartCFrame(CFrame.new(Vector3.new(10, 1.5, 3)))
-
-	local _, flourBag = FlourBag.Create()
-	track(self, flourBag).Parent = workspace
-	flourBag:SetPrimaryPartCFrame(CFrame.new(Vector3.new(4, 1.5, 3)))
-
-	local _, fridge = MeatSteakFridge.Create()
-	track(self, fridge).Parent = workspace
-	fridge:SetPrimaryPartCFrame(CFrame.new(Vector3.new(7, 2.5, 0)))
-
-	local _, kitchenTable1 = KitchenTable.Create()
-	track(self, kitchenTable1).Parent = workspace
-	kitchenTable1:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-6, 1.5, -3)))
-
-	local _, kitchenTable2 = KitchenTable.Create()
-	track(self, kitchenTable2).Parent = workspace
-	kitchenTable2:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-1, 1.5, -3)))
-
-	local _, kitchenTable3, tablePlaceHolder = KitchenTable.Create()
-	track(self, kitchenTable3).Parent = workspace
-	kitchenTable3:SetPrimaryPartCFrame(CFrame.new(Vector3.new(6, 1.5, -3)))
-
-	local plateEntity1, plate1, platePlaceHolder1 = Plate.Create()
-	track(self, plate1).Parent = workspace
-	PlaceHolder.System:Place(tablePlaceHolder, plateEntity1)
-
-	local plateEntity2, plate2, platePlaceHolder2 = Plate.Create()
-	track(self, plate2).Parent = workspace
-	PlaceHolder.System:Place(platePlaceHolder1, plateEntity2)
-
-	local plateEntity3, plate3 = Plate.Create()
-	track(self, plate3).Parent = workspace
-	PlaceHolder.System:Place(platePlaceHolder2, plateEntity3)
-end
-
-function GameCycle:SpawnGuests()
-	local guestCount, serviceSeconds = self:GetDayProgression(self.day)
-	self.guestsRemaining = guestCount
-	self.guestsLeaving = 0
-	self.serviceSecondsRemaining = serviceSeconds
-
-	for _ = 1, guestCount do
-		local _, guest = Guest.Create()
-		track(self, guest).Parent = workspace
-	end
-end
-
 function GameCycle:EnterLobby()
-	self:ClearScene()
-	self.phase = self.Phase.Lobby
-	self.day = 1
-	self.countdownSeconds = 0
-	self.countdownTarget = nil
-	self.serviceSecondsRemaining = 0
-	self.resultSecondsRemaining = 0
-	self.currentReceipt = {
-		day = 1,
-		dishes = {},
-		total = 0,
-	}
-	self.cash = 0
+	self:GetScene():Clear()
+	self.state:ResetLobby()
+	self.economy:Clear()
 	self.owner = nil
-	table.clear(self.pendingExperience)
 	self:BroadcastState()
 end
 
 function GameCycle:EnterPreparation()
-	self.phase = self.Phase.Preparation
-	self.countdownSeconds = 0
-	self.countdownTarget = nil
-	self.serviceSecondsRemaining = 0
-	self.currentReceipt = {
-		day = self.day,
-		dishes = {},
-		total = 0,
-	}
-	if not self.hasStarterScene then
-		self:CreateStarterScene()
-		self.hasStarterScene = true
+	local scene = self:GetScene()
+	self.state:EnterPreparation()
+	self.economy:ResetDay(self.state.day)
+	if not scene.hasStarterScene then
+		scene:CreateStarterScene()
+		scene.hasStarterScene = true
 	end
-	self:SetFurnitureAnchored(false)
+	scene:SetFurnitureAnchored(false)
 	self:BroadcastState()
 end
 
 function GameCycle:EnterService()
-	self:DisableBuildingForPlayers()
-	self:SetFurnitureAnchored(true)
-	self.phase = self.Phase.Service
-	self.countdownSeconds = 0
-	self.countdownTarget = nil
-	self:SpawnGuests()
+	local scene = self:GetScene()
+	scene:DisableBuildingForPlayers()
+	scene:SetFurnitureAnchored(true)
+	local guestCount, serviceSeconds = self:GetDayProgression(self.state.day)
+	self.state:EnterService(guestCount, serviceSeconds)
+	scene:SpawnGuests(guestCount)
 	self:BroadcastState()
 end
 
 function GameCycle:EnterResult(phase: GamePhase)
 	if phase == self.Phase.Defeat then
-		table.clear(self.pendingExperience)
+		self.economy:DiscardPendingExperience()
 	end
-	self.phase = phase
-	self.countdownSeconds = 0
-	self.countdownTarget = nil
-	self.serviceSecondsRemaining = 0
-	self.resultSecondsRemaining = self.ResultDuration
+	self.state:EnterResult(phase, self.ResultDuration)
 	self:BroadcastState()
 end
 
@@ -369,22 +196,9 @@ function GameCycle:RequestPhaseToggle(player: Player)
 		return
 	end
 
-	if self.countdownTarget then
-		self.countdownSeconds = 0
-		self.countdownTarget = nil
-		self:BroadcastState()
+	if not self.state:RequestToggle(self.CountdownDuration) then
 		return
 	end
-
-	if self.phase == self.Phase.Lobby then
-		self.countdownTarget = self.Phase.Preparation
-	elseif self.phase == self.Phase.Preparation then
-		self.countdownTarget = self.Phase.Service
-	else
-		return
-	end
-
-	self.countdownSeconds = self.CountdownDuration
 	self:BroadcastState()
 end
 
@@ -392,100 +206,58 @@ function GameCycle:RequestEndMatch(player: Player)
 	if player ~= self.owner then
 		return
 	end
-	if self.phase ~= self.Phase.Preparation and self.phase ~= self.Phase.Service then
+	if not self.state:CanEndMatch() then
 		return
 	end
 	self:EnterResult(self.Phase.Defeat)
 end
 
 function GameCycle:OnGuestFed(player: Player, _: number, dishEntity: number): number?
-	if not self:CanFeedGuests() or self.guestsRemaining <= 0 then
+	assert(self.worldWrapper, "GameCycle must be configured before use")
+	local dish = self.worldWrapper:FindInstance(dishEntity)
+	if not dish then
 		return nil
 	end
-	local dish = WorldWrapper:FindInstance(dishEntity)
-	if not dish then
+	if not self.state:OnGuestFed() then
 		return nil
 	end
 	local dishName = dish.Name
 	local earned = self.DishPrices[dishName] or 10
-	local receiptDish: ReceiptDish? = nil
-	for _, line in self.currentReceipt.dishes do
-		if line.dishName == dishName then
-			receiptDish = line
-			break
-		end
-	end
-	if receiptDish then
-		receiptDish.count += 1
-		receiptDish.earned += earned
-	else
-		table.insert(self.currentReceipt.dishes, {
-			dishName = dishName,
-			count = 1,
-			earned = earned,
-		})
-	end
-	self.currentReceipt.total += earned
-	self.pendingExperience[player] = (self.pendingExperience[player] or 0) + earned
-
-	self.guestsRemaining -= 1
-	self.guestsLeaving += 1
-	self:AddCash(earned)
+	self.economy:RecordDish(player, dishName, earned)
+	self:BroadcastState()
 	return earned
 end
 
 function GameCycle:OnGuestExited(_: number)
-	if self.phase ~= self.Phase.Service or self.guestsLeaving <= 0 then
+	if not self.state:OnGuestExited() then
 		return
 	end
-	self.guestsLeaving -= 1
-	if self.guestsRemaining == 0 and self.guestsLeaving == 0 then
-		self:SendReceipt()
-		if self.day >= 20 then
-			self:CommitPendingExperience()
-			self:EnterResult(self.Phase.Victory)
-		else
-			self:CommitPendingExperience()
-			self.day += 1
-			self:EnterPreparation()
-		end
+	self:SendReceipt()
+	if self.state.day >= 20 then
+		self:CommitPendingExperience()
+		self:EnterResult(self.Phase.Victory)
 	else
-		self:BroadcastState()
+		self:CommitPendingExperience()
+		self.state.day += 1
+		self:EnterPreparation()
 	end
 end
 
 function GameCycle:Process(deltaTime: number)
-	if self.countdownTarget then
-		self.countdownSeconds -= deltaTime
-		if self.countdownSeconds <= 0 then
-			local target = self.countdownTarget
-			if target == self.Phase.Preparation then
-				self:EnterPreparation()
-			else
-				self:EnterService()
-			end
-			return
-		end
-	elseif self.phase == self.Phase.Service then
-		if self.guestsRemaining > 0 then
-			self.serviceSecondsRemaining -= deltaTime
-			if self.serviceSecondsRemaining <= 0 then
-				self:EnterResult(self.Phase.Defeat)
-				return
-			end
-		end
-	elseif self.phase == self.Phase.Victory or self.phase == self.Phase.Defeat then
-		self.resultSecondsRemaining -= deltaTime
-		if self.resultSecondsRemaining <= 0 then
+	local target = self.state:Tick(deltaTime)
+	if target then
+		if target == self.Phase.Preparation then
+			self:EnterPreparation()
+		elseif target == self.Phase.Service then
+			self:EnterService()
+		elseif target == self.Phase.Defeat then
+			self:EnterResult(self.Phase.Defeat)
+		else
 			self:EnterLobby()
-			return
 		end
+		return
 	end
-
-	local currentSecond = math.ceil(
-		self.countdownTarget and self.countdownSeconds
-			or (self.phase == self.Phase.Service and self.serviceSecondsRemaining or self.resultSecondsRemaining)
-	)
+	local currentSecond = self.state:GetDisplaySeconds()
 	if currentSecond ~= self.lastSentSecond then
 		self.lastSentSecond = currentSecond
 		self:BroadcastState()
@@ -498,10 +270,6 @@ end)
 
 Guest.SetExitedHandler(function(guestEntity)
 	GameCycle:OnGuestExited(guestEntity)
-end)
-
-BuildingSystem:SetCanFinalizePurchase(function()
-	return GameCycle:CanPurchaseFurniture()
 end)
 
 return GameCycle

@@ -99,81 +99,6 @@ end
 --
 -- Процессинг
 function System:Process(_: number)
-	self:query(placeHolderComponent, WorldWrapper:GetReleaseTargetComponent()):forEach(function(entity)
-		if not entity then
-			return
-		end
-		world:remove(entity, WorldWrapper:GetReleaseTargetComponent())
-		world:delete(entity)
-		return entity
-	end)
-
-	-- Обрабатываем запрос пользователя на размещение объекта
-	self:query(WorldWrapper:GetPlayerInteractComponent())
-		:with(placeHolderComponent)
-		:without(_holdsComponent)
-		:forEach(function(placeHolderEntity: jecs.Entity<nil>?, intent): jecs.Entity<nil>?
-			if not placeHolderEntity then
-				return
-			end
-
-			-- Считаем задачу выполненной
-			world:remove(placeHolderEntity, WorldWrapper:GetPlayerInteractComponent())
-
-			-- Начало обработки
-			local keyCode: Enum.KeyCode = intent.KeyCode
-			local playerView: Types.PlayerView = intent.PlayerView
-
-			if keyCode ~= Enum.KeyCode.E then
-				return placeHolderEntity
-			end
-
-			local equippedToolEntity = playerView:TakeFromHands()
-			if not equippedToolEntity then
-				-- Если ничего нет в руках у пользователя, то выходим
-				return placeHolderEntity
-			end
-
-			System:Place(placeHolderEntity, equippedToolEntity)
-
-			return placeHolderEntity
-		end)
-
-	-- Обрабатываем запрос пользователя на поднятие объекта
-	self:query(_placedComponent, WorldWrapper:GetPlayerInteractComponent())
-		:forEach(function(placedEntity, placedComponent, intent)
-			if not placedEntity then
-				return
-			end
-
-			-- Считаем задачу выполненной
-			world:remove(placedEntity, WorldWrapper:GetPlayerInteractComponent())
-
-			-- Начало обработки
-			local placeHolderEntity = placedComponent.PlaceHolderEntity
-			local keyCode: Enum.KeyCode = intent.KeyCode
-			local playerView: Types.PlayerView = intent.PlayerView
-
-			if keyCode ~= Enum.KeyCode.E then
-				return placedEntity
-			end
-
-			local equippedTool = playerView:GetEquippedTool()
-			if equippedTool then
-				-- Если в руках что-то есть, то ничего не берем
-				return placedEntity
-			end
-
-			-- Убираем связь
-			world:remove(placeHolderEntity, _holdsComponent)
-
-			-- Выдаем в руки
-			local tool: Tool = world:get(placedEntity, WorldWrapper:GetInstanceComponent()).Instance
-			playerView:PutInHands(tool)
-
-			return placedEntity
-		end)
-
 	-- Обрабатываем запросы на подмену объектов
 	self:query(_placedComponent, WorldWrapper:GetReplaceTargetComponent())
 		:forEach(function(entityId, placedComponent, replaceComponent)
@@ -191,6 +116,33 @@ function System:Process(_: number)
 
 			return entityId
 		end)
+end
+
+function System:HandleInteraction(
+	target: jecs.Entity<nil>,
+	playerView: Types.PlayerView,
+	keyCode: Enum.KeyCode
+): boolean
+	if world:has(target, placeHolderComponent) and not world:has(target, _holdsComponent) then
+		if keyCode == Enum.KeyCode.E then
+			local equippedToolEntity = playerView:TakeFromHands()
+			if equippedToolEntity then
+				System:Place(target, equippedToolEntity)
+			end
+		end
+		return true
+	end
+
+	local placedComponent = world:get(target, _placedComponent)
+	if not placedComponent then
+		return false
+	end
+	if keyCode == Enum.KeyCode.E and not playerView:GetEquippedTool() then
+		world:remove(placedComponent.PlaceHolderEntity, _holdsComponent)
+		local tool: Tool = world:get(target, WorldWrapper:GetInstanceComponent()).Instance
+		playerView:PutInHands(tool)
+	end
+	return true
 end
 
 function System:Place(placeHolderEntity: jecs.Entity<nil>, targetEntity: jecs.Entity<nil>)

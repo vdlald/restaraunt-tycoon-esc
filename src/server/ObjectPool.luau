@@ -5,6 +5,7 @@ local Class = require(ReplicatedStorage.Shared.Class)
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local WorldWrapper = require(ServerScriptService.Server.World)
+local EntityLifecycleSystem = require(ServerScriptService.Server.Systems.EntityLifecycleSystem)
 local world = WorldWrapper:GetWorld()
 
 --
@@ -34,10 +35,18 @@ function ObjectPool.new(factoryMethod: FactoryMethod, initialSize: number): Obje
 	self._free = {} -- свободные объекты
 	self._inUse = {} -- используемые, по желанию
 
-	for i = 1, initialSize do
+	for _ = 1, initialSize do
 		local entity, instance = self._factoryMethod()
 		instance.Parent = nil -- не в Workspace, пока не нужен
 		world:set(entity, PoolComponent)
+		EntityLifecycleSystem:RegisterCleanup(entity, function(entityId)
+			if self:IsPooled(entityId) then
+				world:remove(entityId, WorldWrapper:GetDestroyRequestedComponent())
+			else
+				self:Release(entityId)
+			end
+			return true
+		end)
 		table.insert(self._free, entity)
 	end
 
@@ -51,6 +60,14 @@ function ObjectPool:Get(): (jecs.Entity<nil>, Instance)
 		local entity, instance = self._factoryMethod()
 		obj = entity
 		instance.Parent = nil
+		EntityLifecycleSystem:RegisterCleanup(entity, function(entityId)
+			if self:IsPooled(entityId) then
+				world:remove(entityId, WorldWrapper:GetDestroyRequestedComponent())
+			else
+				self:Release(entityId)
+			end
+			return true
+		end)
 	end
 	self._inUse[obj] = true
 	local instance = world:get(obj, WorldWrapper:GetInstanceComponent()).Instance

@@ -7,20 +7,19 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Consts = require(ReplicatedStorage.Shared.Consts)
 
 local DataManager = require(ServerScriptService.Server.Player.DataManager)
-local WorldWrapper = require(ServerScriptService.Server.World)
-local BuildingSystem = require(ServerScriptService.Server.Systems.BuildingSystem)
 local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
 local PartyService = require(ServerScriptService.Server.Party.PartyService)
-
-local world = WorldWrapper:GetWorld()
 
 local MatchLifecycle = {}
 
 local matchPartyId: string? = nil
-local lastGamePhase = GameCycle.phase
+local lastGamePhase = GameCycle:GetPhase()
 local hasStartedMatch = false
 
-function MatchLifecycle:Start()
+function MatchLifecycle:Start(context)
+	local worldWrapper = context.World
+	local world = worldWrapper:GetWorld()
+	local buildingSystem = context.Building
 	PartyService:SetLeaderChangedHandler(function(party, leaderUserId)
 		local leader = Players:GetPlayerByUserId(leaderUserId)
 		if leader then
@@ -37,7 +36,7 @@ function MatchLifecycle:Start()
 		end
 
 		matchPartyId = party.id
-		WorldWrapper:RegisterPlayer(player)
+		worldWrapper:RegisterPlayer(player)
 		if party.leaderUserId == player.UserId then
 			GameCycle:StartNewMatch(player)
 		end
@@ -57,10 +56,10 @@ function MatchLifecycle:Start()
 			return
 		end
 
-		BuildingSystem:CancelMove(playerId)
-		world:remove(playerId, WorldWrapper:GetBuildingModeComponent())
-		world:remove(playerId, WorldWrapper:GetIngredientProcessingComponent())
-		world:set(playerId, WorldWrapper:GetReleaseTargetComponent())
+		buildingSystem:CancelMove(playerId)
+		world:remove(playerId, worldWrapper:GetBuildingModeComponent())
+		world:remove(playerId, worldWrapper:GetIngredientProcessingComponent())
+		worldWrapper:RequestDestroy(playerId)
 		player:SetAttribute(Consts.Attributes.PlayerId, nil)
 	end)
 
@@ -71,21 +70,18 @@ end
 
 function MatchLifecycle:ProcessPhaseTransition()
 	if matchPartyId then
-		if GameCycle.phase == GameCycle.Phase.Preparation or GameCycle.phase == GameCycle.Phase.Service then
+		local gamePhase = GameCycle:GetPhase()
+		if gamePhase == GameCycle.Phase.Preparation or gamePhase == GameCycle.Phase.Service then
 			hasStartedMatch = true
 		end
-		if GameCycle.phase == GameCycle.Phase.Service and lastGamePhase ~= GameCycle.Phase.Service then
+		if gamePhase == GameCycle.Phase.Service and lastGamePhase ~= GameCycle.Phase.Service then
 			PartyService:SetMatchService(matchPartyId)
-		elseif
-			hasStartedMatch
-			and GameCycle.phase == GameCycle.Phase.Lobby
-			and lastGamePhase ~= GameCycle.Phase.Lobby
-		then
+		elseif hasStartedMatch and gamePhase == GameCycle.Phase.Lobby and lastGamePhase ~= GameCycle.Phase.Lobby then
 			PartyService:FinishMatch(matchPartyId)
 			matchPartyId = nil
 		end
 	end
-	lastGamePhase = GameCycle.phase
+	lastGamePhase = GameCycle:GetPhase()
 end
 
 return MatchLifecycle

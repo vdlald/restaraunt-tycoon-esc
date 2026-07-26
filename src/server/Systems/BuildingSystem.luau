@@ -16,23 +16,21 @@ local Types = require(ServerScriptService.Server.Types)
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
 local BuildingValidation = require(ServerScriptService.Server.Game.Building.BuildingValidation)
 
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
-
 local Net = require(ReplicatedStorage.Shared.Net)
 
 --
 -- Объявление системы
 local BuildingSystem = Class.defineClass("BuildingSystem", AbstractSystem)
 
-function BuildingSystem.new()
+function BuildingSystem.new(worldWrapper)
 	local parent = AbstractSystem.new()
 	local self = setmetatable(parent, BuildingSystem)
+	local world = worldWrapper:GetWorld()
 
-	self.cachedQueryToggle = world:query(WorldWrapper:GetWantsToToggleBuildingModeComponent()):cached()
-	self.cachedQueryInteract =
-		world:query(WorldWrapper:GetPlayerInteractComponent()):with(WorldWrapper:GetBuildingMovableComponent()):cached()
-	self.cachedQueryMove = world:query(WorldWrapper:GetBuildingMoveStateComponent()):cached()
+	self.worldWrapper = worldWrapper
+	self.world = world
+	self.cachedQueryToggle = world:query(worldWrapper:GetWantsToToggleBuildingModeComponent()):cached()
+	self.cachedQueryMove = world:query(worldWrapper:GetBuildingMoveStateComponent()):cached()
 
 	self.pendingRotations = {}
 	self.ghostMoveLimiter = RateLimiter.new({
@@ -155,22 +153,24 @@ local function computeFloorOffset(instance: Model): number
 end
 
 function BuildingSystem:CancelMove(playerEntity: jecs.Entity<nil>)
-	local moveState = world:get(playerEntity, WorldWrapper:GetBuildingMoveStateComponent())
+	local world = self.world
+	local worldWrapper = self.worldWrapper
+	local moveState = world:get(playerEntity, worldWrapper:GetBuildingMoveStateComponent())
 	if not moveState then
 		return
 	end
 
 	local furnitureEntity = moveState.FurnitureEntity
-	local instance = WorldWrapper:FindInstance(furnitureEntity)
-	local pendingPurchase = world:get(furnitureEntity, WorldWrapper:GetPendingFurniturePurchaseComponent())
+	local instance = worldWrapper:FindInstance(furnitureEntity)
+	local pendingPurchase = world:get(furnitureEntity, worldWrapper:GetPendingFurniturePurchaseComponent())
 	if pendingPurchase then
-		local children = world:get(furnitureEntity, WorldWrapper:GetChildEntitiesComponent())
+		local children = world:get(furnitureEntity, worldWrapper:GetChildEntitiesComponent())
 		if children then
 			for _, childEntity in children.Entities do
-				world:set(childEntity, WorldWrapper:GetReleaseTargetComponent())
+				worldWrapper:RequestDestroy(childEntity)
 			end
 		end
-		world:set(furnitureEntity, WorldWrapper:GetReleaseTargetComponent())
+		worldWrapper:RequestDestroy(furnitureEntity)
 	elseif instance and instance:IsA("Model") then
 		instance.Parent = moveState.OriginalParent
 		instance:SetPrimaryPartCFrame(moveState.OriginalCFrame)
@@ -183,34 +183,38 @@ function BuildingSystem:CancelMove(playerEntity: jecs.Entity<nil>)
 	self.pendingRotations[playerEntity] = nil
 	self.ghostMoveLimiter:Reset(playerEntity)
 	self.ghostRotateLimiter:Reset(playerEntity)
-	world:remove(playerEntity, WorldWrapper:GetBuildingGhostTargetComponent())
+	world:remove(playerEntity, worldWrapper:GetBuildingGhostTargetComponent())
 
 	if not pendingPurchase then
-		world:remove(furnitureEntity, WorldWrapper:GetBuildingLockComponent())
+		world:remove(furnitureEntity, worldWrapper:GetBuildingLockComponent())
 	end
-	world:remove(playerEntity, WorldWrapper:GetBuildingMoveStateComponent())
+	world:remove(playerEntity, worldWrapper:GetBuildingMoveStateComponent())
 end
 
 function BuildingSystem:StartPurchasePlacement(
 	playerEntity: jecs.Entity<nil>,
 	furnitureEntity: jecs.Entity<nil>
 ): boolean
-	if world:has(playerEntity, WorldWrapper:GetBuildingMoveStateComponent()) then
+	local world = self.world
+	local worldWrapper = self.worldWrapper
+	if world:has(playerEntity, worldWrapper:GetBuildingMoveStateComponent()) then
 		return false
 	end
 
-	local playerView = WorldWrapper:FindPlayer(playerEntity)
+	local playerView = worldWrapper:FindPlayer(playerEntity)
 	if not playerView then
 		return false
 	end
 
-	world:set(playerEntity, WorldWrapper:GetBuildingModeComponent())
+	world:set(playerEntity, worldWrapper:GetBuildingModeComponent())
 	self:attemptPickup(playerEntity, furnitureEntity, playerView)
-	return world:has(playerEntity, WorldWrapper:GetBuildingMoveStateComponent())
+	return world:has(playerEntity, worldWrapper:GetBuildingMoveStateComponent())
 end
 
 function BuildingSystem:RequestRotation(playerEntity: jecs.Entity<nil>, deltaYaw: number)
-	if not world:has(playerEntity, WorldWrapper:GetBuildingMoveStateComponent()) then
+	local world = self.world
+	local worldWrapper = self.worldWrapper
+	if not world:has(playerEntity, worldWrapper:GetBuildingMoveStateComponent()) then
 		return
 	end
 
@@ -222,7 +226,9 @@ function BuildingSystem:RequestRotation(playerEntity: jecs.Entity<nil>, deltaYaw
 end
 
 function BuildingSystem:SetGhostTarget(playerEntity: jecs.Entity<nil>, position: Vector3)
-	if not world:has(playerEntity, WorldWrapper:GetBuildingMoveStateComponent()) then
+	local world = self.world
+	local worldWrapper = self.worldWrapper
+	if not world:has(playerEntity, worldWrapper:GetBuildingMoveStateComponent()) then
 		return
 	end
 
@@ -230,44 +236,48 @@ function BuildingSystem:SetGhostTarget(playerEntity: jecs.Entity<nil>, position:
 		return
 	end
 
-	world:set(playerEntity, WorldWrapper:GetBuildingGhostTargetComponent(), { Position = position })
+	world:set(playerEntity, worldWrapper:GetBuildingGhostTargetComponent(), { Position = position })
 end
 
 function BuildingSystem:processToggles()
+	local world = self.world
+	local worldWrapper = self.worldWrapper
 	for playerEntity, request in self.cachedQueryToggle do
 		local enabled = request.Enabled
-		local playerView = WorldWrapper:FindPlayer(playerEntity)
+		local playerView = worldWrapper:FindPlayer(playerEntity)
 		if not playerView then
-			world:remove(playerEntity, WorldWrapper:GetWantsToToggleBuildingModeComponent())
+			world:remove(playerEntity, worldWrapper:GetWantsToToggleBuildingModeComponent())
 			continue
 		end
 
 		local player = playerView:GetPlayer()
-		local currentlyEnabled = world:has(playerEntity, WorldWrapper:GetBuildingModeComponent())
+		local currentlyEnabled = world:has(playerEntity, worldWrapper:GetBuildingModeComponent())
 
 		if enabled and not currentlyEnabled then
-			world:set(playerEntity, WorldWrapper:GetBuildingModeComponent())
+			world:set(playerEntity, worldWrapper:GetBuildingModeComponent())
 		elseif not enabled and currentlyEnabled then
-			world:remove(playerEntity, WorldWrapper:GetBuildingModeComponent())
+			world:remove(playerEntity, worldWrapper:GetBuildingModeComponent())
 			self:CancelMove(playerEntity)
 		end
 
-		local moveState = world:get(playerEntity, WorldWrapper:GetBuildingMoveStateComponent())
+		local moveState = world:get(playerEntity, worldWrapper:GetBuildingMoveStateComponent())
 		local movingEntity = moveState and moveState.FurnitureEntity or 0
-		sendBuildingModeState(player, world:has(playerEntity, WorldWrapper:GetBuildingModeComponent()), movingEntity)
+		sendBuildingModeState(player, world:has(playerEntity, worldWrapper:GetBuildingModeComponent()), movingEntity)
 
-		world:remove(playerEntity, WorldWrapper:GetWantsToToggleBuildingModeComponent())
+		world:remove(playerEntity, worldWrapper:GetWantsToToggleBuildingModeComponent())
 	end
 end
 
 function BuildingSystem:processRotations()
+	local world = self.world
+	local worldWrapper = self.worldWrapper
 	for playerEntity, deltaYaw in self.pendingRotations do
-		local moveState = world:get(playerEntity, WorldWrapper:GetBuildingMoveStateComponent())
+		local moveState = world:get(playerEntity, worldWrapper:GetBuildingMoveStateComponent())
 		if moveState then
 			local newYawOffset = moveState.YawOffset + deltaYaw
 			local newState = table.clone(moveState)
 			newState.YawOffset = newYawOffset
-			world:set(playerEntity, WorldWrapper:GetBuildingMoveStateComponent(), newState)
+			world:set(playerEntity, worldWrapper:GetBuildingMoveStateComponent(), newState)
 
 			local ghost = moveState.GhostInstance
 			if ghost then
@@ -285,20 +295,22 @@ function BuildingSystem:processRotations()
 end
 
 function BuildingSystem:processGhostMovement()
+	local world = self.world
+	local worldWrapper = self.worldWrapper
 	for playerEntity, moveState in self.cachedQueryMove do
-		local ghostTarget = world:get(playerEntity, WorldWrapper:GetBuildingGhostTargetComponent())
+		local ghostTarget = world:get(playerEntity, worldWrapper:GetBuildingGhostTargetComponent())
 		if not ghostTarget then
 			continue
 		end
 
-		world:remove(playerEntity, WorldWrapper:GetBuildingGhostTargetComponent())
+		world:remove(playerEntity, worldWrapper:GetBuildingGhostTargetComponent())
 
 		local ghost = moveState.GhostInstance
 		if not ghost then
 			continue
 		end
 
-		local playerView = WorldWrapper:FindPlayer(playerEntity)
+		local playerView = worldWrapper:FindPlayer(playerEntity)
 		if not playerView then
 			continue
 		end
@@ -328,12 +340,14 @@ function BuildingSystem:attemptPickup(
 	furnitureEntity: jecs.Entity<nil>,
 	playerView: Types.PlayerView
 )
-	local lock = world:get(furnitureEntity, WorldWrapper:GetBuildingLockComponent())
+	local world = self.world
+	local worldWrapper = self.worldWrapper
+	local lock = world:get(furnitureEntity, worldWrapper:GetBuildingLockComponent())
 	if lock and lock.OwnerPlayerEntity ~= playerEntity then
 		return
 	end
 
-	local instance = WorldWrapper:FindInstance(furnitureEntity)
+	local instance = worldWrapper:FindInstance(furnitureEntity)
 	if not instance or not instance:IsA("Model") then
 		return
 	end
@@ -352,7 +366,7 @@ function BuildingSystem:attemptPickup(
 	end
 	instance.Parent = getHiddenFolder()
 
-	world:set(playerEntity, WorldWrapper:GetBuildingMoveStateComponent(), {
+	world:set(playerEntity, worldWrapper:GetBuildingMoveStateComponent(), {
 		FurnitureEntity = furnitureEntity,
 		GhostInstance = ghost,
 		OriginalCFrame = originalCFrame,
@@ -361,7 +375,7 @@ function BuildingSystem:attemptPickup(
 		YawOffset = 0,
 	})
 
-	world:set(furnitureEntity, WorldWrapper:GetBuildingLockComponent(), {
+	world:set(furnitureEntity, worldWrapper:GetBuildingLockComponent(), {
 		OwnerPlayerEntity = playerEntity,
 	})
 
@@ -381,6 +395,8 @@ function BuildingSystem:attemptPlace(
 	},
 	playerView: Types.PlayerView
 )
+	local world = self.world
+	local worldWrapper = self.worldWrapper
 	local ghost = moveState.GhostInstance
 	if not ghost.PrimaryPart then
 		Net.buildingPlacementResult.sendTo({ success = false }, playerView:GetPlayer())
@@ -405,13 +421,13 @@ function BuildingSystem:attemptPlace(
 		return
 	end
 
-	local instance = WorldWrapper:FindInstance(furnitureEntity)
+	local instance = worldWrapper:FindInstance(furnitureEntity)
 	if not instance or not instance:IsA("Model") then
 		Net.buildingPlacementResult.sendTo({ success = false }, playerView:GetPlayer())
 		return
 	end
 
-	local pendingPurchase = world:get(furnitureEntity, WorldWrapper:GetPendingFurniturePurchaseComponent())
+	local pendingPurchase = world:get(furnitureEntity, worldWrapper:GetPendingFurniturePurchaseComponent())
 	if pendingPurchase then
 		if pendingPurchase.BuyerPlayerEntity ~= playerEntity then
 			Net.buildingPlacementResult.sendTo({ success = false }, playerView:GetPlayer())
@@ -447,7 +463,7 @@ function BuildingSystem:attemptPlace(
 			return
 		end
 		instance:SetAttribute("MatchPurchasedFurnitureId", pendingPurchase.FurnitureId)
-		world:remove(furnitureEntity, WorldWrapper:GetPendingFurniturePurchaseComponent())
+		world:remove(furnitureEntity, worldWrapper:GetPendingFurniturePurchaseComponent())
 	end
 
 	instance.Parent = moveState.OriginalParent
@@ -455,8 +471,8 @@ function BuildingSystem:attemptPlace(
 
 	ghost:Destroy()
 
-	world:remove(furnitureEntity, WorldWrapper:GetBuildingLockComponent())
-	world:remove(playerEntity, WorldWrapper:GetBuildingMoveStateComponent())
+	world:remove(furnitureEntity, worldWrapper:GetBuildingLockComponent())
+	world:remove(playerEntity, worldWrapper:GetBuildingMoveStateComponent())
 
 	Net.buildingPlacementResult.sendTo({ success = true }, playerView:GetPlayer())
 	if pendingPurchase then
@@ -469,36 +485,35 @@ function BuildingSystem:attemptPlace(
 	sendBuildingModeState(playerView:GetPlayer(), true, 0)
 end
 
-function BuildingSystem:processInteractions()
-	for furnitureEntity, intent in self.cachedQueryInteract do
-		if intent.KeyCode ~= Enum.KeyCode.E then
-			continue
-		end
+function BuildingSystem:HandleInteraction(
+	furnitureEntity: jecs.Entity<nil>,
+	playerView: Types.PlayerView,
+	keyCode: Enum.KeyCode
+): boolean
+	local world = self.world
+	local worldWrapper = self.worldWrapper
+	if keyCode ~= Enum.KeyCode.E or not world:has(furnitureEntity, worldWrapper:GetBuildingMovableComponent()) then
+		return false
+	end
 
-		local playerEntity = getPlayerEntityFromView(intent.PlayerView)
-		if not playerEntity then
-			continue
-		end
+	local playerEntity = getPlayerEntityFromView(playerView)
+	if not playerEntity or not world:has(playerEntity, worldWrapper:GetBuildingModeComponent()) then
+		return false
+	end
 
-		if not world:has(playerEntity, WorldWrapper:GetBuildingModeComponent()) then
-			continue
-		end
-
-		world:remove(furnitureEntity, WorldWrapper:GetPlayerInteractComponent())
-
-		local moveState = world:get(playerEntity, WorldWrapper:GetBuildingMoveStateComponent())
-		if moveState then
-			if moveState.FurnitureEntity == furnitureEntity then
-				Utils:safeCall("BuildingSystem.attemptPlace", function()
-					self:attemptPlace(playerEntity, furnitureEntity, moveState, intent.PlayerView)
-				end)
-			end
-		else
-			Utils:safeCall("BuildingSystem.attemptPickup", function()
-				self:attemptPickup(playerEntity, furnitureEntity, intent.PlayerView)
+	local moveState = world:get(playerEntity, worldWrapper:GetBuildingMoveStateComponent())
+	if moveState then
+		if moveState.FurnitureEntity == furnitureEntity then
+			Utils:safeCall("BuildingSystem.attemptPlace", function()
+				self:attemptPlace(playerEntity, furnitureEntity, moveState, playerView)
 			end)
 		end
+	else
+		Utils:safeCall("BuildingSystem.attemptPickup", function()
+			self:attemptPickup(playerEntity, furnitureEntity, playerView)
+		end)
 	end
+	return true
 end
 
 function BuildingSystem:Process(_: number)
@@ -513,10 +528,6 @@ function BuildingSystem:Process(_: number)
 	Utils:safeCall("BuildingSystem.processGhostMovement", function()
 		self:processGhostMovement()
 	end)
-
-	Utils:safeCall("BuildingSystem.processInteractions", function()
-		self:processInteractions()
-	end)
 end
 
-return BuildingSystem.new()
+return BuildingSystem.new(require(ServerScriptService.Server.World))

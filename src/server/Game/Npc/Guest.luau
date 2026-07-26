@@ -64,10 +64,6 @@ local function finishArrival(entityId: jecs.Entity<nil>, movementId: number)
 		MovementId = movementId,
 		MovementStarted = true,
 	})
-	local guest = WorldWrapper:FindInstance(entityId)
-	if guest then
-		guest:AddTag("Interactable")
-	end
 	world:set(entityId, WorldWrapper:GetPlayerInteractableComponent())
 end
 
@@ -177,25 +173,11 @@ local System = Class.defineClass("System", AbstractSystem)
 function System.new()
 	local parent = AbstractSystem.new()
 	local self = setmetatable(parent, System)
-	self.cachedQuery = world:query(WorldWrapper:GetPlayerInteractComponent()):with(GuestNpcComponent):cached()
 	self.guestsQuery = world:query(GuestNpcComponent):cached()
 	return self
 end
 
 function System:Process(_: number)
-	self:query(GuestNpcComponent, WorldWrapper:GetReleaseTargetComponent()):forEach(function(entityId)
-		if not entityId then
-			return
-		end
-		local instance = WorldWrapper:FindInstance(entityId)
-		world:remove(entityId, WorldWrapper:GetReleaseTargetComponent())
-		world:delete(entityId)
-		if instance then
-			instance:Destroy()
-		end
-		return entityId
-	end)
-
 	for entityId, guestState in self.guestsQuery do
 		if not guestState.MovementStarted then
 			local guest = WorldWrapper:FindInstance(entityId)
@@ -205,13 +187,6 @@ function System:Process(_: number)
 				moveGuest(entityId, guestState.MovementId, guestState.State, ServicePosition)
 			end
 		end
-	end
-
-	for entityId, intent in self.cachedQuery do
-		world:remove(entityId, WorldWrapper:GetPlayerInteractComponent())
-		Utils:safeCall(`{self.ClassName}:processPlayerInteract`, function()
-			self:processPlayerInteract(entityId, intent.PlayerView, intent.KeyCode)
-		end)
 	end
 end
 
@@ -234,12 +209,8 @@ function System:processPlayerInteract(entityId: jecs.Entity<nil>, playerView: Ty
 		return
 	end
 
-	world:set(equippedTool, WorldWrapper:GetReleaseTargetComponent())
+	WorldWrapper:RequestDestroy(equippedTool)
 	playerView:TakeFromHands()
-	local guest = WorldWrapper:FindInstance(entityId)
-	if guest then
-		guest:RemoveTag("Interactable")
-	end
 	world:remove(entityId, WorldWrapper:GetPlayerInteractableComponent())
 	world:set(entityId, GuestNpcComponent, {
 		State = "Leaving",
@@ -247,6 +218,20 @@ function System:processPlayerInteract(entityId: jecs.Entity<nil>, playerView: Ty
 		MovementStarted = true,
 	})
 	moveGuest(entityId, guestState.MovementId + 1, "Leaving", ExitPosition)
+end
+
+function System:HandleInteraction(
+	entityId: jecs.Entity<nil>,
+	playerView: Types.PlayerView,
+	keyCode: Enum.KeyCode
+): boolean
+	if not world:has(entityId, GuestNpcComponent) then
+		return false
+	end
+	Utils:safeCall(`{self.ClassName}:processPlayerInteract`, function()
+		self:processPlayerInteract(entityId, playerView, keyCode)
+	end)
+	return true
 end
 
 return {

@@ -5,8 +5,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local FurnitureCatalog = require(ReplicatedStorage.Shared.FurnitureCatalog)
 local Net = require(ReplicatedStorage.Shared.Net)
-local WorldWrapper = require(ServerScriptService.Server.World)
-local BuildingSystem = require(ServerScriptService.Server.Systems.BuildingSystem)
 local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
 
 local Chair = require(ServerScriptService.Server.Game.Furniture.Chair)
@@ -15,8 +13,6 @@ local KitchenTable = require(ServerScriptService.Server.Game.Furniture.KitchenTa
 local FlourBag = require(ServerScriptService.Server.Game.Furniture.FlourBag)
 local MeatSteakFridge = require(ServerScriptService.Server.Game.Furniture.MeatSteakFridge)
 local Trashcan = require(ServerScriptService.Server.Game.Furniture.Trashcan)
-
-local world = WorldWrapper:GetWorld()
 
 local factories = {
 	Chair = Chair,
@@ -37,14 +33,15 @@ local function sendResult(player: Player, furnitureId: string, success: boolean,
 	}, player)
 end
 
-function FurnitureStore:RequestPurchase(player: Player, furnitureId: string)
+function FurnitureStore:RequestPurchase(player: Player, furnitureId: string, buildingSystem, worldWrapper)
+	local world = worldWrapper:GetWorld()
 	local product = FurnitureCatalog:GetProduct(furnitureId)
 	if not product then
 		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.InvalidFurniture)
 		return
 	end
 
-	if GameCycle.phase ~= GameCycle.Phase.Preparation then
+	if GameCycle:GetPhase() ~= GameCycle.Phase.Preparation then
 		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.NotPreparation)
 		return
 	end
@@ -57,7 +54,7 @@ function FurnitureStore:RequestPurchase(player: Player, furnitureId: string)
 	if not playerEntity then
 		return
 	end
-	if world:has(playerEntity, WorldWrapper:GetBuildingMoveStateComponent()) then
+	if world:has(playerEntity, worldWrapper:GetBuildingMoveStateComponent()) then
 		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.PlacementActive)
 		return
 	end
@@ -70,20 +67,20 @@ function FurnitureStore:RequestPurchase(player: Player, furnitureId: string)
 	local factory = factories[product.Id]
 	local furnitureEntity, instance = factory.Create()
 	instance.Parent = workspace
-	world:set(furnitureEntity, WorldWrapper:GetPendingFurniturePurchaseComponent(), {
+	world:set(furnitureEntity, worldWrapper:GetPendingFurniturePurchaseComponent(), {
 		BuyerPlayerEntity = playerEntity,
 		FurnitureId = product.Id,
 		Price = product.Price,
 	})
 
-	if not BuildingSystem:StartPurchasePlacement(playerEntity, furnitureEntity) then
-		local children = world:get(furnitureEntity, WorldWrapper:GetChildEntitiesComponent())
+	if not buildingSystem:StartPurchasePlacement(playerEntity, furnitureEntity) then
+		local children = world:get(furnitureEntity, worldWrapper:GetChildEntitiesComponent())
 		if children then
 			for _, childEntity in children.Entities do
-				world:set(childEntity, WorldWrapper:GetReleaseTargetComponent())
+				worldWrapper:RequestDestroy(childEntity)
 			end
 		end
-		world:set(furnitureEntity, WorldWrapper:GetReleaseTargetComponent())
+		worldWrapper:RequestDestroy(furnitureEntity)
 		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.PlacementFailed)
 		return
 	end

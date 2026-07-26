@@ -142,7 +142,7 @@ function IngredientSystem:processIngredient(target: jecs.Entity<nil>, deltaTime:
 		local nextEntity, nextInstance = self.handsMorphFunc(target)
 		nextInstance.Parent = workspace
 		world:set(target, WorldWrapper:GetReplaceTargetComponent(), { NewTarget = nextEntity })
-		world:set(target, WorldWrapper:GetReleaseTargetComponent())
+		WorldWrapper:RequestDestroy(target)
 		return
 	end
 
@@ -170,16 +170,6 @@ function IngredientSystem:Process(deltaTime: number)
 			return entityId
 		end)
 	end
-
-	self:query(WorldWrapper:GetReleaseTargetComponent())
-		:with(self.ingredientComponent)
-		:forEach(function(entityId: jecs.Entity<nil>, _)
-			if not entityId then
-				return
-			end
-			world:remove(entityId, WorldWrapper:GetReleaseTargetComponent())
-			self.ingredientPool:Release(entityId)
-		end)
 end
 
 --
@@ -206,8 +196,6 @@ function IngredientFactory:DefineIngredient(ingredientForm: IngredientForm)
 
 	module.Pool = ObjectPool.new(function()
 		local instance: Tool = ingredientForm.Template:Clone()
-		instance:AddTag(Consts.Tags.Interactable)
-
 		local entity = WorldWrapper:RegisterInstance(instance, ingredientForm.IngredientName)
 		world:set(entity, abstractIngredientComponent)
 		world:set(entity, ingredientComponent)
