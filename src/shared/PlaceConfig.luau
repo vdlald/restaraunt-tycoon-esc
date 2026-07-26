@@ -3,8 +3,8 @@
 -- Set these values to the published places in the same Roblox universe.
 -- PlaceId 0 keeps local Rojo/Studio sessions in Match mode.
 local PlaceConfig = {
-	LobbyPlaceId = 0,
-	MatchPlaceId = 0,
+	LobbyPlaceId = 128173541019000,
+	MatchPlaceId = 110681201549527,
 }
 
 function PlaceConfig:IsLobbyPlace(placeId: number): boolean
