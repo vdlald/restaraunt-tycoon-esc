@@ -18,17 +18,15 @@ function PlayerInteractSystem.new(worldWrapper, dispatcher: InteractionDispatche
 	local self = setmetatable(parent, PlayerInteractSystem)
 	self.worldWrapper = worldWrapper
 	self.dispatcher = dispatcher
-	self.cachedQuery = worldWrapper
-		:GetWorld()
-		:query(worldWrapper:GetPlayerComponent(), worldWrapper:GetInteractionQueueComponent())
-		:cached()
+	self.cachedQuery =
+		worldWrapper.Ecs:query(worldWrapper:GetPlayerComponent(), worldWrapper:GetInteractionQueueComponent()):cached()
 	return self
 end
 
 -- Процессинг
 function PlayerInteractSystem:Process(_: number)
 	local worldWrapper = self.worldWrapper
-	local world = worldWrapper:GetWorld()
+	local world = worldWrapper.Ecs
 	local reservedTargets = {} :: { [jecs.Entity<nil>]: boolean }
 	for playerId, playerComponent, queue in self.cachedQuery do
 		local requests = queue.Requests

@@ -17,8 +17,8 @@ function MatchLifecycle:Start(context)
 	self.lastGamePhase = self.gameCycle:GetPhase()
 	self.hasStartedMatch = false
 
-	local worldWrapper = context.World
-	local world = worldWrapper:GetWorld()
+	local gameWorld = context.World
+	local world = gameWorld.Ecs
 	local buildingSystem = context.Building
 	local gameCycle = self.gameCycle
 	local initializedPlayers = {} :: { [Player]: boolean }
@@ -52,7 +52,7 @@ function MatchLifecycle:Start(context)
 		end
 
 		self.matchPartyId = party.id
-		worldWrapper:RegisterPlayer(player)
+		gameWorld:RegisterPlayer(player)
 		if party.leaderUserId == player.UserId then
 			gameCycle:StartNewMatch(player)
 		end
@@ -79,9 +79,9 @@ function MatchLifecycle:Start(context)
 		end
 
 		buildingSystem:CancelMove(playerId)
-		world:remove(playerId, worldWrapper:GetBuildingModeComponent())
-		world:remove(playerId, worldWrapper:GetIngredientProcessingComponent())
-		worldWrapper:RequestDestroy(playerId)
+		world:remove(playerId, gameWorld.Components.BuildingMode)
+		world:remove(playerId, gameWorld.Components.IngredientProcessing)
+		gameWorld:RequestDestroy(playerId)
 		player:SetAttribute(Consts.Attributes.PlayerId, nil)
 	end)
 

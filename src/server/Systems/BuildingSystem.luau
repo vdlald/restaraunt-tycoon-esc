@@ -30,7 +30,7 @@ export type PurchasePolicy = {
 function BuildingSystem.new(worldWrapper)
 	local parent = AbstractSystem.new(worldWrapper)
 	local self = setmetatable(parent, BuildingSystem)
-	local world = worldWrapper:GetWorld()
+	local world = worldWrapper.Ecs
 
 	self.worldWrapper = worldWrapper
 	self.world = world

@@ -5,7 +5,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SharedGamePhase = require(ReplicatedStorage.Shared.GamePhase)
 
-local GameScene = require(ServerScriptService.Server.Game.GameCycle.GameScene)
+local MatchScene = require(ServerScriptService.Server.Game.GameCycle.MatchScene)
 local MatchReplication = require(ServerScriptService.Server.Application.Match.MatchReplication)
 local DayEconomy = require(ServerScriptService.Server.Domain.Match.DayEconomy)
 local MatchPhaseState = require(ServerScriptService.Server.Domain.Match.MatchPhaseState)
@@ -29,8 +29,8 @@ local GameCycle = {}
 GameCycle.__index = GameCycle
 
 function GameCycle.new(
-	worldWrapper,
-	buildingSystem,
+	gameWorld,
+	scene: MatchScene.MatchScene,
 	catalog,
 	rewardService,
 	replication: MatchReplication.MatchReplication
@@ -40,11 +40,11 @@ function GameCycle.new(
 		CountdownDuration = 3,
 		ResultDuration = 5,
 		state = MatchPhaseState.new(),
-		scene = GameScene.new(worldWrapper, buildingSystem, catalog),
+		scene = scene,
 		lastSentSecond = -1,
 		economy = DayEconomy.new(1),
 		owner = nil :: Player?,
-		worldWrapper = worldWrapper,
+		gameWorld = gameWorld,
 		rewardService = rewardService,
 		replication = replication,
 	}, GameCycle)
@@ -56,7 +56,7 @@ function GameCycle.new(
 	return self
 end
 
-function GameCycle:GetScene(): GameScene.GameScene
+function GameCycle:GetScene(): MatchScene.MatchScene
 	return self.scene
 end
 
@@ -175,21 +175,15 @@ function GameCycle:EnterPreparation()
 	local scene = self:GetScene()
 	self.state:EnterPreparation()
 	self.economy:ResetDay(self.state.day)
-	if not scene.hasStarterScene then
-		scene:CreateStarterScene()
-		scene.hasStarterScene = true
-	end
-	scene:SetFurnitureAnchored(false)
+	scene:Prepare()
 	self:BroadcastState()
 end
 
 function GameCycle:EnterService()
 	local scene = self:GetScene()
-	scene:DisableBuildingForPlayers()
-	scene:SetFurnitureAnchored(true)
 	local guestCount, serviceSeconds = self:GetDayProgression(self.state.day)
 	self.state:EnterService(guestCount, serviceSeconds)
-	scene:SpawnGuests(guestCount)
+	scene:StartService(guestCount)
 	self:BroadcastState()
 end
 
@@ -226,7 +220,7 @@ function GameCycle:RequestEndMatch(player: Player)
 end
 
 function GameCycle:OnGuestFed(player: Player, _: number, dishEntity: number): number?
-	local dish = self.worldWrapper:FindInstance(dishEntity)
+	local dish = self.gameWorld:FindInstance(dishEntity)
 	if not dish then
 		return nil
 	end

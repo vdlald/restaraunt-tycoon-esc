@@ -8,17 +8,17 @@ local jecs = require(ReplicatedStorage.Packages.Jecs)
 
 local Chair = {}
 
-function Chair.new(worldWrapper)
-	local world = worldWrapper:GetWorld()
+function Chair.new(gameWorld)
+	local world = gameWorld.Ecs
 	local component = world:component() :: jecs.Id<nil>
 
 	return {
 		Component = component,
 		Create = function(): (jecs.Entity<nil>, Instance)
 			local instance: Instance = ServerStorage.Furniture.Chair:Clone()
-			local entity = worldWrapper:RegisterInstance(instance, "Chair")
+			local entity = gameWorld:RegisterInstance(instance, "Chair")
 			world:set(entity, component)
-			world:set(entity, worldWrapper:GetBuildingMovableComponent())
+			world:set(entity, gameWorld.Components.BuildingMovable)
 
 			return entity, instance
 		end,

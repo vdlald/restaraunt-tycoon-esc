@@ -33,28 +33,24 @@ type SceneCatalog = {
 export type GameScene = {
 	instanceRoots: { Instance },
 	hasStarterScene: boolean,
-	worldWrapper: World.GameWorld,
+	gameWorld: World.GameWorld,
 	buildingSystem: BuildingController,
 	catalog: SceneCatalog,
 	DisableBuildingForPlayers: (self: GameScene) -> (),
 	SetFurnitureAnchored: (self: GameScene, anchored: boolean) -> (),
 	Clear: (self: GameScene) -> (),
-	CreateStarterScene: (self: GameScene) -> (),
-	SpawnGuests: (self: GameScene, guestCount: number) -> (),
+	Prepare: (self: GameScene) -> (),
+	StartService: (self: GameScene, guestCount: number) -> (),
 }
 
 local GameScene = {}
 GameScene.__index = GameScene
 
-function GameScene.new(
-	worldWrapper: World.GameWorld,
-	buildingSystem: BuildingController,
-	catalog: SceneCatalog
-): GameScene
+function GameScene.new(gameWorld: World.GameWorld, buildingSystem: BuildingController, catalog: SceneCatalog): GameScene
 	return setmetatable({
 		instanceRoots = {},
 		hasStarterScene = false,
-		worldWrapper = worldWrapper,
+		gameWorld = gameWorld,
 		buildingSystem = buildingSystem,
 		catalog = catalog,
 	}, GameScene) :: GameScene
@@ -66,28 +62,30 @@ local function track(self: GameScene, instance: Instance): Instance
 end
 
 function GameScene:DisableBuildingForPlayers()
-	local world = self.worldWrapper:GetWorld()
-	for playerEntity in world:query(self.worldWrapper:GetWantsToToggleBuildingModeComponent()) do
-		world:remove(playerEntity, self.worldWrapper:GetWantsToToggleBuildingModeComponent())
+	local gameWorld = self.gameWorld
+	local world = gameWorld.Ecs
+	for playerEntity in world:query(gameWorld.Components.WantsToToggleBuildingMode) do
+		world:remove(playerEntity, gameWorld.Components.WantsToToggleBuildingMode)
 	end
-	for playerEntity in world:query(self.worldWrapper:GetInteractionQueueComponent()) do
-		world:remove(playerEntity, self.worldWrapper:GetInteractionQueueComponent())
+	for playerEntity in world:query(gameWorld.Components.InteractionQueue) do
+		world:remove(playerEntity, gameWorld.Components.InteractionQueue)
 	end
 
 	for _, player in Players:GetPlayers() do
 		local playerEntity = player:GetAttribute(Consts.Attributes.PlayerId)
 		if playerEntity then
 			self.buildingSystem:CancelMove(playerEntity)
-			world:remove(playerEntity, self.worldWrapper:GetBuildingModeComponent())
-			world:remove(playerEntity, self.worldWrapper:GetBuildingGhostTargetComponent())
+			world:remove(playerEntity, gameWorld.Components.BuildingMode)
+			world:remove(playerEntity, gameWorld.Components.BuildingGhostTarget)
 		end
 	end
 end
 
 function GameScene:SetFurnitureAnchored(anchored: boolean)
-	local world = self.worldWrapper:GetWorld()
-	for furnitureEntity in world:query(self.worldWrapper:GetBuildingMovableComponent()) do
-		local furniture = self.worldWrapper:FindInstance(furnitureEntity)
+	local gameWorld = self.gameWorld
+	local world = gameWorld.Ecs
+	for furnitureEntity in world:query(gameWorld.Components.BuildingMovable) do
+		local furniture = gameWorld:FindInstance(furnitureEntity)
 		if furniture then
 			local parts = furniture:GetDescendants()
 			table.insert(parts, furniture)
@@ -101,7 +99,8 @@ function GameScene:SetFurnitureAnchored(anchored: boolean)
 end
 
 function GameScene:Clear()
-	local world = self.worldWrapper:GetWorld()
+	local gameWorld = self.gameWorld
+	local world = gameWorld.Ecs
 	self:DisableBuildingForPlayers()
 	self.catalog.Guest.CancelAll()
 	for _, player in Players:GetPlayers() do
@@ -121,14 +120,14 @@ function GameScene:Clear()
 	end
 
 	local sceneEntities = {}
-	for entity, instanceData in world:query(self.worldWrapper:GetInstanceComponent()) do
+	for entity, instanceData in world:query(gameWorld.Components.Instance) do
 		if instanceData.Instance.Parent then
 			instanceData.Instance.Parent = nil
 		end
 		table.insert(sceneEntities, entity)
 	end
 	for _, entity in sceneEntities do
-		self.worldWrapper:RequestDestroy(entity)
+		gameWorld:RequestDestroy(entity)
 	end
 
 	for _, instance in self.instanceRoots do
@@ -138,6 +137,20 @@ function GameScene:Clear()
 	end
 	table.clear(self.instanceRoots)
 	self.hasStarterScene = false
+end
+
+function GameScene:Prepare()
+	if not self.hasStarterScene then
+		self:CreateStarterScene()
+		self.hasStarterScene = true
+	end
+	self:SetFurnitureAnchored(false)
+end
+
+function GameScene:StartService(guestCount: number)
+	self:DisableBuildingForPlayers()
+	self:SetFurnitureAnchored(true)
+	self:SpawnGuests(guestCount)
 end
 
 function GameScene:CreateStarterScene()

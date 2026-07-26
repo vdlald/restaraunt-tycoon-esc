@@ -20,6 +20,18 @@ export type Party = {
 	reservedServerAccessCode: string?,
 }
 export type PartyError = number
+export type MatchTeleportData = { partyId: string }
+type InvitePayload = { partyId: string, inviterUserId: number, inviterDisplayName: string }
+type PartyChangedMessage = { kind: "partyChanged", payload: { partyId: string } }
+type InviteMessage = { kind: "invite", payload: { targetUserId: number, invitation: InvitePayload } }
+type PartyMessage = PartyChangedMessage | InviteMessage
+type Presence = { jobId: string, placeId: number }
+type Map<T> = {
+	GetAsync: (self: Map<T>, mapKey: string) -> T?,
+	SetAsync: (self: Map<T>, mapKey: string, value: T, expiration: number) -> (),
+	RemoveAsync: (self: Map<T>, mapKey: string) -> (),
+	UpdateAsync: (self: Map<T>, mapKey: string, transform: (T?) -> T?, expiration: number) -> T?,
+}
 
 local PartyService = {
 	Phase = {
@@ -57,19 +69,19 @@ local PartyService = {
 	},
 }
 
-local function createLocalMap()
-	local values = {} :: { [string]: any }
+local function createLocalMap<T>(): Map<T>
+	local values = {} :: { [string]: T }
 	return {
-		GetAsync = function(_: any, mapKey: string)
+		GetAsync = function(_: Map<T>, mapKey: string): T?
 			return values[mapKey]
 		end,
-		SetAsync = function(_: any, mapKey: string, value: any)
+		SetAsync = function(_: Map<T>, mapKey: string, value: T, _: number)
 			values[mapKey] = value
 		end,
-		RemoveAsync = function(_: any, mapKey: string)
+		RemoveAsync = function(_: Map<T>, mapKey: string)
 			values[mapKey] = nil
 		end,
-		UpdateAsync = function(_: any, mapKey: string, transform: (any) -> any)
+		UpdateAsync = function(_: Map<T>, mapKey: string, transform: (T?) -> T?, _: number): T?
 			local value = transform(values[mapKey])
 			values[mapKey] = value
 			return value
@@ -77,15 +89,38 @@ local function createLocalMap()
 	}
 end
 
-local parties: any = RunService:IsStudio() and createLocalMap() or MemoryStoreService:GetHashMap("RestaurantPartyV1")
-local memberships: any = RunService:IsStudio() and createLocalMap()
-	or MemoryStoreService:GetHashMap("RestaurantPartyMemberV1")
-local invitations: any = RunService:IsStudio() and createLocalMap()
-	or MemoryStoreService:GetHashMap("RestaurantPartyInviteV1")
-local incomingInvites: any = RunService:IsStudio() and createLocalMap()
-	or MemoryStoreService:GetHashMap("RestaurantPartyIncomingV1")
-local presence: any = RunService:IsStudio() and createLocalMap()
-	or MemoryStoreService:GetHashMap("RestaurantPartyPresenceV1")
+local function createMemoryStoreMap<T>(mapName: string): Map<T>
+	local hashMap = MemoryStoreService:GetHashMap(mapName)
+	return {
+		GetAsync = function(_: Map<T>, mapKey: string): T?
+			return hashMap:GetAsync(mapKey) :: T?
+		end,
+		SetAsync = function(_: Map<T>, mapKey: string, value: T, expiration: number)
+			hashMap:SetAsync(mapKey, value, expiration)
+		end,
+		RemoveAsync = function(_: Map<T>, mapKey: string)
+			hashMap:RemoveAsync(mapKey)
+		end,
+		UpdateAsync = function(_: Map<T>, mapKey: string, transform: (T?) -> T?, expiration: number): T?
+			return hashMap:UpdateAsync(mapKey, function(current)
+				return transform(current :: T?)
+			end, expiration) :: T?
+		end,
+	}
+end
+
+local function createMap<T>(mapName: string): Map<T>
+	if RunService:IsStudio() then
+		return createLocalMap()
+	end
+	return createMemoryStoreMap(mapName)
+end
+
+local parties: Map<Party> = createMap("RestaurantPartyV1")
+local memberships: Map<string> = createMap("RestaurantPartyMemberV1")
+local invitations: Map<InvitePayload> = createMap("RestaurantPartyInviteV1")
+local incomingInvites: Map<{ string }> = createMap("RestaurantPartyIncomingV1")
+local presence: Map<Presence> = createMap("RestaurantPartyPresenceV1")
 local EXPIRATION = 60 * 60 * 24 * 30
 local TOPIC = "RestaurantPartyV1"
 local leaderChangedHandler = function(_: Party, _: number) end
@@ -124,9 +159,9 @@ function PartyService:GetParty(player: Player): Party?
 	return getPartyById(partyId)
 end
 
-local function publish(kind: string, payload: { [string]: any })
+local function publish(message: PartyMessage)
 	pcall(function()
-		MessagingService:PublishAsync(TOPIC, { kind = kind, payload = payload })
+		MessagingService:PublishAsync(TOPIC, message)
 	end)
 end
 
@@ -226,7 +261,7 @@ function PartyService:BroadcastParty(party: Party)
 			self:SendState(player)
 		end
 	end
-	publish("partyChanged", { partyId = party.id })
+	publish({ kind = "partyChanged", payload = { partyId = party.id } })
 end
 
 local function updateParty(partyId: string, mutation: (Party?) -> Party?): Party?
@@ -293,7 +328,11 @@ function PartyService:Invite(leader: Player, targetUserId: number): (Party?, Par
 		return nil, self.Error.AlreadyInParty
 	end
 
-	local invitation = { partyId = party.id, inviterUserId = leader.UserId, inviterDisplayName = leader.DisplayName }
+	local invitation: InvitePayload = {
+		partyId = party.id,
+		inviterUserId = leader.UserId,
+		inviterDisplayName = leader.DisplayName,
+	}
 	pcall(function()
 		invitations:SetAsync(inviteKey(targetUserId, party.id), invitation, EXPIRATION)
 		incomingInvites:UpdateAsync(key(targetUserId), function(current)
@@ -304,7 +343,7 @@ function PartyService:Invite(leader: Player, targetUserId: number): (Party?, Par
 			return ids
 		end, EXPIRATION)
 	end)
-	publish("invite", { targetUserId = targetUserId, invitation = invitation })
+	publish({ kind = "invite", payload = { targetUserId = targetUserId, invitation = invitation } })
 	return party, nil
 end
 
@@ -520,7 +559,7 @@ function PartyService:StartMatch(leader: Player): (Party?, PartyError?)
 	return updated, nil
 end
 
-function PartyService:EnterMatch(player: Player, teleportData: any): (Party?, PartyError?)
+function PartyService:EnterMatch(player: Player, teleportData: unknown): (Party?, PartyError?)
 	if RunService:IsStudio() and (type(teleportData) ~= "table" or type(teleportData.partyId) ~= "string") then
 		local party, createError = self:Create(player)
 		if not party then
@@ -531,8 +570,9 @@ function PartyService:EnterMatch(player: Player, teleportData: any): (Party?, Pa
 	if type(teleportData) ~= "table" or type(teleportData.partyId) ~= "string" then
 		return nil, self.Error.InvalidInvite
 	end
+	local matchTeleportData = teleportData :: MatchTeleportData
 	local party = self:GetParty(player)
-	if not party or party.id ~= teleportData.partyId then
+	if not party or party.id ~= matchTeleportData.partyId then
 		return nil, self.Error.NotInParty
 	end
 	if party.phase == self.Phase.Teleporting then

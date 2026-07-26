@@ -10,10 +10,11 @@ export type Cleanup = (entityId: jecs.Entity<nil>) -> boolean
 local EntityLifecycleSystem = {}
 EntityLifecycleSystem.__index = EntityLifecycleSystem
 
-function EntityLifecycleSystem.new(worldWrapper)
+function EntityLifecycleSystem.new(gameWorld)
 	return setmetatable({
-		worldWrapper = worldWrapper,
-		world = worldWrapper:GetWorld(),
+		gameWorld = gameWorld,
+		worldWrapper = gameWorld,
+		world = gameWorld.Ecs,
 		cleanups = {} :: { [jecs.Entity<nil>]: Cleanup },
 	}, EntityLifecycleSystem)
 end
@@ -26,12 +27,12 @@ function EntityLifecycleSystem:UnregisterCleanup(entityId: jecs.Entity<nil>)
 end
 
 function EntityLifecycleSystem:Process(_: number)
-	for entityId in self.world:query(self.worldWrapper:GetDestroyRequestedComponent()) do
+	for entityId in self.world:query(self.gameWorld.Components.DestroyRequested) do
 		if not self.world:contains(entityId) then
 			continue
 		end
 
-		local children = self.world:get(entityId, self.worldWrapper:GetChildEntitiesComponent())
+		local children = self.world:get(entityId, self.gameWorld.Components.ChildEntities)
 		local hasLiveChildren = false
 		if children then
 			for _, childEntity in children.Entities do
@@ -53,8 +54,8 @@ function EntityLifecycleSystem:Process(_: number)
 			self.cleanups[entityId] = nil
 		end
 
-		local instance = self.worldWrapper:FindInstance(entityId)
-		self.world:remove(entityId, self.worldWrapper:GetDestroyRequestedComponent())
+		local instance = self.gameWorld:FindInstance(entityId)
+		self.world:remove(entityId, self.gameWorld.Components.DestroyRequested)
 		self.world:delete(entityId)
 		if instance then
 			instance:Destroy()

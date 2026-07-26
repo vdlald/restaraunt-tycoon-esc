@@ -8,8 +8,8 @@ local jecs = require(ReplicatedStorage.Packages.Jecs)
 
 local KitchenTable = {}
 
-function KitchenTable.new(worldContext, placeHolder)
-	local world = worldContext:GetWorld()
+function KitchenTable.new(gameWorld, placeHolder)
+	local world = gameWorld.Ecs
 	local kitchenTableComponent = world:component() :: jecs.Id<nil>
 
 	local function createKitchenTable(): (jecs.Entity<nil>, Instance)
@@ -18,10 +18,10 @@ function KitchenTable.new(worldContext, placeHolder)
 
 		local placeHolderEntity, _ = placeHolder.Create(top)
 
-		local entity = worldContext:RegisterInstance(instance, "KitchenTable")
+		local entity = gameWorld:RegisterInstance(instance, "KitchenTable")
 		world:set(entity, kitchenTableComponent)
-		world:set(entity, worldContext:GetBuildingMovableComponent())
-		world:set(entity, worldContext:GetChildEntitiesComponent(), { Entities = { placeHolderEntity } })
+		world:set(entity, gameWorld.Components.BuildingMovable)
+		world:set(entity, gameWorld.Components.ChildEntities, { Entities = { placeHolderEntity } })
 
 		return entity, instance, placeHolderEntity
 	end

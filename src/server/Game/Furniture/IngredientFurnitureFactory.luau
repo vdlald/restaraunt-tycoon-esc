@@ -25,12 +25,12 @@ export type IngredientFurnitureForm = {
 local IngredientFurnitureSystem = Class.defineClass("IngredientFurnitureSystem", AbstractSystem)
 
 function IngredientFurnitureSystem.new(
-	worldWrapper,
+	gameWorld,
 	furnitureComponent: jecs.Id<nil>,
 	ingredientComponent: jecs.Id<nil>,
 	ingredientPool: ObjectPool.ObjectPool
 )
-	local parent = AbstractSystem.new(worldWrapper)
+	local parent = AbstractSystem.new(gameWorld)
 	local self = setmetatable(parent, IngredientFurnitureSystem)
 
 	self.furnitureComponent = furnitureComponent
@@ -76,7 +76,7 @@ function IngredientFurnitureSystem:processPlayerInteract(
 
 	if self.world:has(equippedTool, self.ingredientComponent) then
 		playerView:TakeFromHands()
-		self.worldWrapper:RequestDestroy(equippedTool)
+		self.gameWorld:RequestDestroy(equippedTool)
 	end
 end
 
@@ -85,8 +85,8 @@ end
 local IngredientFurnitureFactory = {}
 IngredientFurnitureFactory.__index = IngredientFurnitureFactory
 
-function IngredientFurnitureFactory.new(worldWrapper)
-	return setmetatable({ worldWrapper = worldWrapper, world = worldWrapper:GetWorld() }, IngredientFurnitureFactory)
+function IngredientFurnitureFactory.new(gameWorld)
+	return setmetatable({ gameWorld = gameWorld, world = gameWorld.Ecs }, IngredientFurnitureFactory)
 end
 
 function IngredientFurnitureFactory:DefineFurniture(form: IngredientFurnitureForm)
@@ -98,20 +98,16 @@ function IngredientFurnitureFactory:DefineFurniture(form: IngredientFurnitureFor
 
 	module.Create = function(): (jecs.Entity<nil>, Instance)
 		local instance: Instance = form.Template:Clone()
-		local entity = self.worldWrapper:RegisterInstance(instance, form.FurnitureName)
+		local entity = self.gameWorld:RegisterInstance(instance, form.FurnitureName)
 		self.world:set(entity, furnitureComponent)
-		self.world:set(entity, self.worldWrapper:GetPlayerInteractableComponent())
-		self.world:set(entity, self.worldWrapper:GetBuildingMovableComponent())
+		self.world:set(entity, self.gameWorld.Components.PlayerInteractable)
+		self.world:set(entity, self.gameWorld.Components.BuildingMovable)
 
 		return entity, instance
 	end
 
-	module.System = IngredientFurnitureSystem.new(
-		self.worldWrapper,
-		furnitureComponent,
-		form.IngredientComponent,
-		form.IngredientPool
-	)
+	module.System =
+		IngredientFurnitureSystem.new(self.gameWorld, furnitureComponent, form.IngredientComponent, form.IngredientPool)
 
 	return module
 end

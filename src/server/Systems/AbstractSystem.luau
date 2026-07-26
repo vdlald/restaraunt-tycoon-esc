@@ -15,10 +15,11 @@ export type AbstractSystem = {
 	query: <T>(self: AbstractSystem, ...any) -> QueryExt<T>,
 }
 
-function AbstractSystem.new(worldWrapper)
+function AbstractSystem.new(gameWorld)
 	local self = setmetatable({}, AbstractSystem)
-	self.worldWrapper = worldWrapper
-	self.world = worldWrapper:GetWorld()
+	self.gameWorld = gameWorld
+	self.worldWrapper = gameWorld -- Compatibility for systems not migrated yet.
+	self.world = gameWorld.Ecs
 	return self
 end
 

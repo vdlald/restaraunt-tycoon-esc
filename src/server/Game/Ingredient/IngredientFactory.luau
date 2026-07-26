@@ -177,7 +177,7 @@ local IngredientFactory = {}
 IngredientFactory.__index = IngredientFactory
 
 function IngredientFactory.new(worldWrapper, lifecycleSystem)
-	local world = worldWrapper:GetWorld()
+	local world = worldWrapper.Ecs
 	return setmetatable({
 		worldWrapper = worldWrapper,
 		lifecycleSystem = lifecycleSystem,

@@ -8,6 +8,7 @@ local EntityLifecycleSystem = require(ServerScriptService.Server.Systems.EntityL
 local BuildingSystem = require(ServerScriptService.Server.Systems.BuildingSystem)
 local PlayerInteractSystem = require(ServerScriptService.Server.Systems.PlayerInteractSystem)
 local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
+local GameScene = require(ServerScriptService.Server.Game.GameCycle.GameScene)
 local GameplayCatalog = require(ServerScriptService.Server.Game.GameplayCatalog)
 local ExperienceRewards = require(ServerScriptService.Server.Application.Player.ExperienceRewards)
 local MatchReplication = require(ServerScriptService.Server.Application.Match.MatchReplication)
@@ -19,7 +20,11 @@ export type GameContext = {
 	Building: typeof(BuildingSystem.new(World.new())),
 	GameCycle: typeof(GameCycle.new(
 		World.new(),
-		BuildingSystem.new(World.new()),
+		GameScene.new(
+			World.new(),
+			BuildingSystem.new(World.new()),
+			GameplayCatalog.new(World.new(), EntityLifecycleSystem.new(World.new()))
+		),
 		GameplayCatalog.new(World.new(), EntityLifecycleSystem.new(World.new())),
 		ExperienceRewards.new(),
 		MatchReplication.new()
@@ -37,11 +42,12 @@ function GameContext.new(): GameContext
 	local lifecycle = EntityLifecycleSystem.new(world)
 	local catalog = GameplayCatalog.new(world, lifecycle)
 	local building = BuildingSystem.new(world)
+	local scene = GameScene.new(world, building, catalog)
 	local context = {
 		World = world,
 		Lifecycle = lifecycle,
 		Building = building,
-		GameCycle = GameCycle.new(world, building, catalog, ExperienceRewards.new(), MatchReplication.new()),
+		GameCycle = GameCycle.new(world, scene, catalog, ExperienceRewards.new(), MatchReplication.new()),
 		Catalog = catalog,
 		Systems = SystemRegistry.new(),
 		Interactions = InteractionDispatcher.new(),

@@ -18,8 +18,8 @@ export type TrashcanComponent = jecs.Id<nil>
 -- Объявление обработчика
 local System = Class.defineClass("System", AbstractSystem)
 
-function System.new(worldContext, trashcanComponent, ingredientFactory, dishFactory)
-	local parent = AbstractSystem.new(worldContext)
+function System.new(gameWorld, trashcanComponent, ingredientFactory, dishFactory)
+	local parent = AbstractSystem.new(gameWorld)
 	local self = setmetatable(parent, System)
 	self.trashcanComponent = trashcanComponent
 	self.ingredientFactory = ingredientFactory
@@ -46,7 +46,7 @@ function System:processPlayerInteract(_: jecs.Entity<nil>, playerView: Types.Pla
 	then
 		return
 	end
-	self.worldWrapper:RequestDestroy(equippedTool)
+	self.gameWorld:RequestDestroy(equippedTool)
 	playerView:TakeFromHands()
 end
 
@@ -68,16 +68,16 @@ end
 -- Модуль
 local Trashcan = {}
 
-function Trashcan.new(worldContext, ingredientFactory, dishFactory)
-	local world = worldContext:GetWorld()
+function Trashcan.new(gameWorld, ingredientFactory, dishFactory)
+	local world = gameWorld.Ecs
 	local trashcanComponent = world:component() :: TrashcanComponent
 
 	local function createTrashcan(): (jecs.Entity<nil>, Instance)
 		local instance: Instance = ServerStorage.Furniture.Trashcan:Clone()
-		local entity = worldContext:RegisterInstance(instance, "Trashcan")
+		local entity = gameWorld:RegisterInstance(instance, "Trashcan")
 		world:set(entity, trashcanComponent)
-		world:set(entity, worldContext:GetPlayerInteractableComponent())
-		world:set(entity, worldContext:GetBuildingMovableComponent())
+		world:set(entity, gameWorld.Components.PlayerInteractable)
+		world:set(entity, gameWorld.Components.BuildingMovable)
 
 		return entity, instance
 	end
@@ -85,7 +85,7 @@ function Trashcan.new(worldContext, ingredientFactory, dishFactory)
 	return {
 		Create = createTrashcan,
 		Component = trashcanComponent,
-		System = System.new(worldContext, trashcanComponent, ingredientFactory, dishFactory),
+		System = System.new(gameWorld, trashcanComponent, ingredientFactory, dishFactory),
 	}
 end
 

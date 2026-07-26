@@ -242,9 +242,9 @@ local Guest = {}
 function Guest.new(worldContext: World.GameWorld, dishFactory: DishFactoryContract)
 	local context: GuestContext = {
 		worldWrapper = worldContext,
-		world = worldContext:GetWorld(),
+		world = worldContext.Ecs,
 		dishFactory = dishFactory,
-		component = worldContext:GetWorld():component(),
+		component = worldContext.Ecs:component(),
 		onFed = defaultOnFed,
 		onExited = defaultOnExited,
 	}

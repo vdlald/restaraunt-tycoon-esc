@@ -29,15 +29,16 @@ export type ObjectPool = {
 }
 
 function ObjectPool.new(
-	worldWrapper: World.GameWorld,
+	gameWorld: World.GameWorld,
 	lifecycleSystem: typeof(EntityLifecycleSystem.new(World.new())),
 	factoryMethod: FactoryMethod,
 	initialSize: number
 ): ObjectPool
 	local self = setmetatable({}, ObjectPool)
 
-	self._worldWrapper = worldWrapper
-	self._world = worldWrapper:GetWorld()
+	self._gameWorld = gameWorld
+	self._worldWrapper = gameWorld -- Compatibility for cleanup callbacks.
+	self._world = gameWorld.Ecs
 	self._lifecycleSystem = lifecycleSystem
 	self._poolComponent = self._world:component()
 	self._factoryMethod = factoryMethod
@@ -50,7 +51,7 @@ function ObjectPool.new(
 		self._world:set(entity, self._poolComponent)
 		self._lifecycleSystem:RegisterCleanup(entity, function(entityId)
 			if self:IsPooled(entityId) then
-				self._world:remove(entityId, self._worldWrapper:GetDestroyRequestedComponent())
+				self._world:remove(entityId, self._gameWorld.Components.DestroyRequested)
 			else
 				self:Release(entityId)
 			end
@@ -71,7 +72,7 @@ function ObjectPool:Get(): (jecs.Entity<nil>, Instance)
 		instance.Parent = nil
 		self._lifecycleSystem:RegisterCleanup(entity, function(entityId)
 			if self:IsPooled(entityId) then
-				self._world:remove(entityId, self._worldWrapper:GetDestroyRequestedComponent())
+				self._world:remove(entityId, self._gameWorld.Components.DestroyRequested)
 			else
 				self:Release(entityId)
 			end
@@ -79,7 +80,7 @@ function ObjectPool:Get(): (jecs.Entity<nil>, Instance)
 		end)
 	end
 	self._inUse[obj] = true
-	local instance = self._world:get(obj, self._worldWrapper:GetInstanceComponent()).Instance
+	local instance = self._world:get(obj, self._gameWorld.Components.Instance).Instance
 	self._world:remove(obj, self._poolComponent)
 	return obj, instance
 end
@@ -93,7 +94,7 @@ function ObjectPool:Release(entityId: jecs.Entity<nil>)
 		self._releaseCallback(entityId)
 	end
 
-	local obj = self._world:get(entityId, self._worldWrapper:GetInstanceComponent()).Instance
+	local obj = self._world:get(entityId, self._gameWorld.Components.Instance).Instance
 
 	-- сбросить состояние под ваши нужды (позиция, velocity, эффекты)
 	obj.Parent = nil

@@ -7,7 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
 
 return function(dishFactory, worldWrapper, rawPie, choppedMeat)
-	local world = worldWrapper:GetWorld()
+	local world = worldWrapper.Ecs
 	local function getByComponent(component: jecs.Id<nil>, a: jecs.Entity<nil>, b: jecs.Entity<nil>): jecs.Entity<nil>?
 		if world:has(a, component) then
 			return a

@@ -8,8 +8,8 @@ local jecs = require(ReplicatedStorage.Packages.Jecs)
 
 local Plate = {}
 
-function Plate.new(worldContext, placeHolder)
-	local world = worldContext:GetWorld()
+function Plate.new(gameWorld, placeHolder)
+	local world = gameWorld.Ecs
 	local plateComponent = world:component() :: jecs.Id<nil>
 
 	local function createPlate(): (jecs.Entity<nil>, Instance)
@@ -17,10 +17,10 @@ function Plate.new(worldContext, placeHolder)
 		local top = instance:WaitForChild("Handle")
 		local placeHolderEntity, _ = placeHolder.Create(top)
 
-		local entity = worldContext:RegisterInstance(instance, "Plate")
+		local entity = gameWorld:RegisterInstance(instance, "Plate")
 		world:set(entity, plateComponent)
-		world:set(entity, worldContext:GetPlayerInteractableComponent())
-		world:set(entity, worldContext:GetChildEntitiesComponent(), { Entities = { placeHolderEntity } })
+		world:set(entity, gameWorld.Components.PlayerInteractable)
+		world:set(entity, gameWorld.Components.ChildEntities, { Entities = { placeHolderEntity } })
 
 		return entity, instance, placeHolderEntity
 	end

@@ -33,7 +33,7 @@ InteractionDispatcher.__index = InteractionDispatcher
 function InteractionDispatcher.new(): InteractionDispatcher
 	return setmetatable({
 		_handlers = {},
-	}, InteractionDispatcher) :: any
+	}, InteractionDispatcher) :: InteractionDispatcher
 end
 
 function InteractionDispatcher:Register(handler: Handler)

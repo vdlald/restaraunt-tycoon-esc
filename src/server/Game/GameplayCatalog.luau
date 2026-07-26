@@ -89,7 +89,7 @@ function GameplayCatalog.new(worldWrapper, lifecycleSystem)
 	end
 
 	function catalog:IsProcessableIngredient(entityId)
-		return worldWrapper:GetWorld():has(entityId, ingredientFactory:GetProcessableIngredientComponent())
+		return worldWrapper.Ecs:has(entityId, ingredientFactory:GetProcessableIngredientComponent())
 	end
 
 	return catalog

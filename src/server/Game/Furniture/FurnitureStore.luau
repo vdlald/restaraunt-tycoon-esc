@@ -20,8 +20,8 @@ local function sendResult(player: Player, furnitureId: string, success: boolean,
 	}, player)
 end
 
-function FurnitureStore:RequestPurchase(player: Player, furnitureId: string, buildingSystem, worldWrapper, gameCycle)
-	local world = worldWrapper:GetWorld()
+function FurnitureStore:RequestPurchase(player: Player, furnitureId: string, buildingSystem, gameWorld, gameCycle)
+	local world = gameWorld.Ecs
 	local product = FurnitureCatalog:GetProduct(furnitureId)
 	if not product then
 		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.InvalidFurniture)
@@ -41,7 +41,7 @@ function FurnitureStore:RequestPurchase(player: Player, furnitureId: string, bui
 	if not playerEntity then
 		return
 	end
-	if world:has(playerEntity, worldWrapper:GetBuildingMoveStateComponent()) then
+	if world:has(playerEntity, gameWorld.Components.BuildingMoveState) then
 		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.PlacementActive)
 		return
 	end
@@ -54,20 +54,20 @@ function FurnitureStore:RequestPurchase(player: Player, furnitureId: string, bui
 	local factory = self.factories[product.Id]
 	local furnitureEntity, instance = factory.Create()
 	instance.Parent = workspace
-	world:set(furnitureEntity, worldWrapper:GetPendingFurniturePurchaseComponent(), {
+	world:set(furnitureEntity, gameWorld.Components.PendingFurniturePurchase, {
 		BuyerPlayerEntity = playerEntity,
 		FurnitureId = product.Id,
 		Price = product.Price,
 	})
 
 	if not buildingSystem:StartPurchasePlacement(playerEntity, furnitureEntity) then
-		local children = world:get(furnitureEntity, worldWrapper:GetChildEntitiesComponent())
+		local children = world:get(furnitureEntity, gameWorld.Components.ChildEntities)
 		if children then
 			for _, childEntity in children.Entities do
-				worldWrapper:RequestDestroy(childEntity)
+				gameWorld:RequestDestroy(childEntity)
 			end
 		end
-		worldWrapper:RequestDestroy(furnitureEntity)
+		gameWorld:RequestDestroy(furnitureEntity)
 		sendResult(player, furnitureId, false, FurnitureCatalog.PurchaseResultReason.PlacementFailed)
 		return
 	end

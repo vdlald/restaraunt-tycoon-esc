@@ -117,7 +117,7 @@ local DishFactory = {}
 DishFactory.__index = DishFactory
 
 function DishFactory.new(worldWrapper, lifecycleSystem, ingredientFactory)
-	local world = worldWrapper:GetWorld()
+	local world = worldWrapper.Ecs
 	return setmetatable({
 		worldWrapper = worldWrapper,
 		lifecycleSystem = lifecycleSystem,

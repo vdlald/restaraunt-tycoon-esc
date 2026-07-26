@@ -82,8 +82,8 @@ export type ChildEntitiesComponent = jecs.Id<{ Entities: { jecs.Entity<nil> } }>
 
 export type WorldWrapper = {
 	-- jecks specific
-	GetWorld: (self: WorldWrapper) -> jecs.World,
-
+	Ecs: jecs.World,
+	Components: Components,
 	GetPlayerComponent: (self: WorldWrapper) -> PlayerComponent,
 	GetInstanceComponent: (self: WorldWrapper) -> InstanceComponent,
 
@@ -124,6 +124,25 @@ export type WorldWrapper = {
 	-- register
 	RegisterPlayer: (self: WorldWrapper, connectedPlayer: Player) -> jecs.Entity<nil>,
 	RegisterInstance: (self: WorldWrapper, newInstance: Instance, class: string) -> jecs.Entity<nil>,
+}
+
+export type Components = {
+	Player: PlayerComponent,
+	Instance: InstanceComponent,
+	PlayerInteractable: PlayerInteractableComponent,
+	InteractionQueue: InteractionQueueComponent,
+	IngredientProcessing: IngredientProcessingComponent,
+	IngredientProgress: IngredientProgressComponent,
+	ReplaceTarget: ReplaceTargetComponent,
+	DestroyRequested: DestroyRequestedComponent,
+	BuildingMode: BuildingModeComponent,
+	WantsToToggleBuildingMode: WantsToToggleBuildingModeComponent,
+	BuildingMovable: BuildingMovableComponent,
+	BuildingLock: BuildingLockComponent,
+	BuildingMoveState: BuildingMoveStateComponent,
+	BuildingGhostTarget: BuildingGhostTargetComponent,
+	PendingFurniturePurchase: PendingFurniturePurchaseComponent,
+	ChildEntities: ChildEntitiesComponent,
 }
 
 -- GameWorld is the preferred name for the instance-owned ECS boundary.
@@ -178,12 +197,27 @@ function World.new(): GameWorld
 
 	local WorldWrapper = {}
 	WorldWrapper.world = world
+	WorldWrapper.Ecs = world
+	WorldWrapper.Components = {
+		Player = playerComponent,
+		Instance = instanceComponent,
+		PlayerInteractable = playerInteractableComponent,
+		InteractionQueue = interactionQueueComponent,
+		IngredientProcessing = ingredientProcessingComponent,
+		IngredientProgress = ingredientProgressComponent,
+		ReplaceTarget = replaceTargetComponent,
+		DestroyRequested = destroyRequestedComponent,
+		BuildingMode = buildingModeComponent,
+		WantsToToggleBuildingMode = wantsToToggleBuildingModeComponent,
+		BuildingMovable = buildingMovableComponent,
+		BuildingLock = buildingLockComponent,
+		BuildingMoveState = buildingMoveStateComponent,
+		BuildingGhostTarget = buildingGhostTargetComponent,
+		PendingFurniturePurchase = pendingFurniturePurchaseComponent,
+		ChildEntities = childEntitiesComponent,
+	}
 
 	-- Функции
-	function WorldWrapper:GetWorld(): jecs.World
-		return self.world
-	end
-
 	function WorldWrapper:GetPlayerComponent(): PlayerComponent
 		return playerComponent
 	end

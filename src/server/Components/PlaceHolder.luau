@@ -24,8 +24,8 @@ export type Holds = jecs.Id<{ TargetEntity: jecs.Entity<nil>, Weld: WeldConstrai
 -- Объявление обработчика
 local System = Class.defineClass("PlaceHolderSystem", AbstractSystem)
 
-function System.new(worldContext, placeHolderComponent, placedComponent, holdsComponent)
-	local parent = AbstractSystem.new(worldContext)
+function System.new(gameWorld, placeHolderComponent, placedComponent, holdsComponent)
+	local parent = AbstractSystem.new(gameWorld)
 	local self = setmetatable(parent, System)
 	self.placeHolderComponent = placeHolderComponent
 	self.placedComponent = placedComponent
@@ -37,13 +37,13 @@ end
 -- Процессинг
 function System:Process(_: number)
 	-- Обрабатываем запросы на подмену объектов
-	self:query(self.placedComponent, self.worldWrapper:GetReplaceTargetComponent())
+	self:query(self.placedComponent, self.gameWorld.Components.ReplaceTarget)
 		:forEach(function(entityId, placedComponent, replaceComponent)
 			if not entityId then
 				return
 			end
 
-			self.world:remove(entityId, self.worldWrapper:GetReplaceTargetComponent())
+			self.world:remove(entityId, self.gameWorld.Components.ReplaceTarget)
 
 			local placeHolderEntity = placedComponent.PlaceHolderEntity
 			local _, newTarget = entityId, replaceComponent.NewTarget
@@ -76,7 +76,7 @@ function System:HandleInteraction(
 	end
 	if keyCode == Enum.KeyCode.E and not playerView:GetEquippedTool() then
 		self.world:remove(placedComponent.PlaceHolderEntity, self.holdsComponent)
-		local tool: Tool = self.world:get(target, self.worldWrapper:GetInstanceComponent()).Instance
+		local tool: Tool = self.world:get(target, self.gameWorld.Components.Instance).Instance
 		playerView:PutInHands(tool)
 	end
 	return true
@@ -91,37 +91,37 @@ end
 
 local PlaceHolder = {}
 
-function PlaceHolder.new(worldContext)
-	local world = worldContext:GetWorld()
+function PlaceHolder.new(gameWorld)
+	local world = gameWorld.Ecs
 	local placeHolderComponent = world:component() :: PlaceHolderComponent
 	local placedComponent = world:component() :: Placed
 	local holdsComponent = world:component() :: Holds
-	local system = System.new(worldContext, placeHolderComponent, placedComponent, holdsComponent)
+	local system = System.new(gameWorld, placeHolderComponent, placedComponent, holdsComponent)
 
 	local function createPlaceHolder(instance: Instance): (jecs.Entity<nil>, Instance)
 		instance:AddTag(Consts.Tags.Interactable)
 		instance:AddTag(Consts.Tags.PlaceHolder)
 
-		local entity = worldContext:RegisterInstance(instance, "PlaceHolder")
+		local entity = gameWorld:RegisterInstance(instance, "PlaceHolder")
 		world:set(entity, placeHolderComponent)
-		world:set(entity, worldContext:GetPlayerInteractableComponent())
+		world:set(entity, gameWorld.Components.PlayerInteractable)
 
 		return entity, instance
 	end
 
 	world:set(placedComponent, jecs.OnAdd, function(entity, _, _)
-		world:get(entity, worldContext:GetInstanceComponent()).Instance:AddTag("Placed")
+		world:get(entity, gameWorld.Components.Instance).Instance:AddTag("Placed")
 	end)
 	world:set(placedComponent, jecs.OnRemove, function(entity, _, _)
-		world:get(entity, worldContext:GetInstanceComponent()).Instance:RemoveTag("Placed")
+		world:get(entity, gameWorld.Components.Instance).Instance:RemoveTag("Placed")
 	end)
 	world:set(holdsComponent, jecs.OnAdd, function(placeHolderEntity, _, data)
 		local targetEntity = data.TargetEntity
-		world:get(placeHolderEntity, worldContext:GetInstanceComponent()).Instance:AddTag("Holds")
+		world:get(placeHolderEntity, gameWorld.Components.Instance).Instance:AddTag("Holds")
 		world:set(targetEntity, placedComponent, { PlaceHolderEntity = placeHolderEntity })
 
-		local targetInstance: Tool = world:get(targetEntity, worldContext:GetInstanceComponent()).Instance
-		local topPart: Part = world:get(placeHolderEntity, worldContext:GetInstanceComponent()).Instance
+		local targetInstance: Tool = world:get(targetEntity, gameWorld.Components.Instance).Instance
+		local topPart: Part = world:get(placeHolderEntity, gameWorld.Components.Instance).Instance
 		targetInstance.Parent = workspace
 		local plateTop = topPart.CFrame * CFrame.new(0, topPart.Size.Y / 2, 0)
 		local targetCFrame = plateTop * CFrame.new(0, targetInstance.PrimaryPart.Size.Y / 2, 0)
@@ -136,7 +136,7 @@ function PlaceHolder.new(worldContext)
 		local holdsData = world:get(placeHolderEntity, holdsComponent)
 		local targetEntity: jecs.Entity<nil>, weld: WeldConstraint = holdsData.TargetEntity, holdsData.Weld
 
-		world:get(placeHolderEntity, worldContext:GetInstanceComponent()).Instance:RemoveTag("Holds")
+		world:get(placeHolderEntity, gameWorld.Components.Instance).Instance:RemoveTag("Holds")
 		if not deleting then
 			world:remove(targetEntity, placedComponent)
 		end

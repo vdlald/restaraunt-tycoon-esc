@@ -21,6 +21,8 @@ local clientReadyLimiter = RateLimiter.new({
 	refillPerSecond = 0,
 })
 
+type PartyActionCallback = () -> (PartyService.Party?, PartyService.PartyError?)
+
 local function canHandleRequest(player: Player, action: number): boolean
 	if not partyRequestLimiter:CanConsume(player) then
 		return false
@@ -36,7 +38,7 @@ local function canHandleRequest(player: Player, action: number): boolean
 	return true
 end
 
-local function handle(player: Player, action: number, callback: () -> (any, number?))
+local function handle(player: Player, action: number, callback: PartyActionCallback)
 	if not canHandleRequest(player, action) then
 		Net.partyActionResult.sendTo({
 			action = action,
@@ -71,14 +73,14 @@ function PartyServer:Start()
 	for _, player in Players:GetPlayers() do
 		PartyService:OnPlayerAdded(player)
 	end
-	Net.clientReady.listen(function(_: table, player: Player)
+	Net.clientReady.listen(function(_: {}, player: Player)
 		if not clientReadyLimiter:TryConsume(player) then
 			return
 		end
 		PartyService:SendInitialState(player)
 	end)
 
-	Net.partyCreateRequest.listen(function(_: table, player: Player)
+	Net.partyCreateRequest.listen(function(_: {}, player: Player)
 		handle(player, PartyService.Action.Create, function()
 			return PartyService:Create(player)
 		end)
@@ -98,7 +100,7 @@ function PartyServer:Start()
 			return PartyService:DeclineInvite(player, data.partyId)
 		end)
 	end)
-	Net.partyLeaveRequest.listen(function(_: table, player: Player)
+	Net.partyLeaveRequest.listen(function(_: {}, player: Player)
 		handle(player, PartyService.Action.Leave, function()
 			return PartyService:Leave(player)
 		end)
@@ -108,7 +110,7 @@ function PartyServer:Start()
 			return PartyService:Kick(player, data.targetUserId)
 		end)
 	end)
-	Net.partyStartRequest.listen(function(_: table, player: Player)
+	Net.partyStartRequest.listen(function(_: {}, player: Player)
 		handle(player, PartyService.Action.Start, function()
 			return PartyService:StartMatch(player)
 		end)
