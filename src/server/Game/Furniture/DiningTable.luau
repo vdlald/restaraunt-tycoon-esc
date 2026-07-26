@@ -6,36 +6,30 @@ local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
 
-local ServerScriptService = game:GetService("ServerScriptService")
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
+local DiningTable = {}
 
---
--- Компонент
-export type DiningTableComponent = jecs.Id<nil>
-local DiningTableComponent = world:component() :: DiningTableComponent
+function DiningTable.new(worldContext, placeHolder)
+	local world = worldContext:GetWorld()
+	local diningTableComponent = world:component() :: jecs.Id<nil>
 
---
--- Объявление сущности
-local PlaceHolder = require(ServerScriptService.Server.Components.PlaceHolder)
+	local function createDiningTable(): (jecs.Entity<nil>, Instance)
+		local instance: Instance = ServerStorage.Furniture.DiningTable:Clone()
+		local top = instance:WaitForChild("top_part")
 
-function CreateDiningTable(): (jecs.Entity<nil>, Instance)
-	local instance: Instance = ServerStorage.Furniture.DiningTable:Clone()
-	local top = instance:WaitForChild("top_part")
+		local placeHolderEntity, _ = placeHolder.Create(top)
 
-	local placeHolderEntity, _ = PlaceHolder.Create(top)
+		local entity = worldContext:RegisterInstance(instance, "DiningTable")
+		world:set(entity, diningTableComponent)
+		world:set(entity, worldContext:GetBuildingMovableComponent())
+		world:set(entity, worldContext:GetChildEntitiesComponent(), { Entities = { placeHolderEntity } })
 
-	local entity = WorldWrapper:RegisterInstance(instance, "DiningTable")
-	world:set(entity, DiningTableComponent)
-	world:set(entity, WorldWrapper:GetBuildingMovableComponent())
-	world:set(entity, WorldWrapper:GetChildEntitiesComponent(), { Entities = { placeHolderEntity } })
+		return entity, instance, placeHolderEntity
+	end
 
-	return entity, instance, placeHolderEntity
+	return {
+		Create = createDiningTable,
+		Component = diningTableComponent,
+	}
 end
 
---
--- Модуль
-return {
-	Create = CreateDiningTable,
-	Component = DiningTableComponent,
-}
+return DiningTable

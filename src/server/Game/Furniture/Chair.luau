@@ -5,29 +5,24 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
-local ServerScriptService = game:GetService("ServerScriptService")
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
 
---
--- Компонент
-export type ChairComponent = jecs.Id<nil>
-local ChairComponent = world:component() :: ChairComponent
+local Chair = {}
 
---
--- Объявление сущности
-function CreateChair(): (jecs.Entity<nil>, Instance)
-	local instance: Instance = ServerStorage.Furniture.Chair:Clone()
-	local entity = WorldWrapper:RegisterInstance(instance, "Chair")
-	world:set(entity, ChairComponent)
-	world:set(entity, WorldWrapper:GetBuildingMovableComponent())
+function Chair.new(worldWrapper)
+	local world = worldWrapper:GetWorld()
+	local component = world:component() :: jecs.Id<nil>
 
-	return entity, instance
+	return {
+		Component = component,
+		Create = function(): (jecs.Entity<nil>, Instance)
+			local instance: Instance = ServerStorage.Furniture.Chair:Clone()
+			local entity = worldWrapper:RegisterInstance(instance, "Chair")
+			world:set(entity, component)
+			world:set(entity, worldWrapper:GetBuildingMovableComponent())
+
+			return entity, instance
+		end,
+	}
 end
 
---
--- Модуль
-return {
-	Create = CreateChair,
-	Component = ChairComponent,
-}
+return Chair

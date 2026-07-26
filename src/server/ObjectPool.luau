@@ -3,15 +3,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Class = require(ReplicatedStorage.Shared.Class)
 
-local ServerScriptService = game:GetService("ServerScriptService")
-local WorldWrapper = require(ServerScriptService.Server.World)
-local EntityLifecycleSystem = require(ServerScriptService.Server.Systems.EntityLifecycleSystem)
-local world = WorldWrapper:GetWorld()
-
---
--- Компонент
-local PoolComponent = world:component()
-
 --
 -- Объявление
 local ObjectPool = Class.defineClass("ObjectPool")
@@ -20,7 +11,7 @@ export type FactoryMethod = () -> (jecs.Entity<nil>, Instance)
 export type ReleaseCallback = (jecs.Entity<nil>) -> ()
 
 export type ObjectPool = {
-	new: (factoryMethod: FactoryMethod, initialSize: number) -> ObjectPool,
+	new: (worldWrapper: any, lifecycleSystem: any, factoryMethod: FactoryMethod, initialSize: number) -> ObjectPool,
 
 	Get: (self: ObjectPool) -> (jecs.Entity<nil>, Instance),
 	Release: (self: ObjectPool, jecs.Entity<nil>) -> (),
@@ -28,9 +19,13 @@ export type ObjectPool = {
 	IsPooled: (self: ObjectPool, entityId: jecs.Entity<nil>) -> boolean,
 }
 
-function ObjectPool.new(factoryMethod: FactoryMethod, initialSize: number): ObjectPool
+function ObjectPool.new(worldWrapper, lifecycleSystem, factoryMethod: FactoryMethod, initialSize: number): ObjectPool
 	local self = setmetatable({}, ObjectPool)
 
+	self._worldWrapper = worldWrapper
+	self._world = worldWrapper:GetWorld()
+	self._lifecycleSystem = lifecycleSystem
+	self._poolComponent = self._world:component()
 	self._factoryMethod = factoryMethod
 	self._free = {} -- свободные объекты
 	self._inUse = {} -- используемые, по желанию
@@ -38,10 +33,10 @@ function ObjectPool.new(factoryMethod: FactoryMethod, initialSize: number): Obje
 	for _ = 1, initialSize do
 		local entity, instance = self._factoryMethod()
 		instance.Parent = nil -- не в Workspace, пока не нужен
-		world:set(entity, PoolComponent)
-		EntityLifecycleSystem:RegisterCleanup(entity, function(entityId)
+		self._world:set(entity, self._poolComponent)
+		self._lifecycleSystem:RegisterCleanup(entity, function(entityId)
 			if self:IsPooled(entityId) then
-				world:remove(entityId, WorldWrapper:GetDestroyRequestedComponent())
+				self._world:remove(entityId, self._worldWrapper:GetDestroyRequestedComponent())
 			else
 				self:Release(entityId)
 			end
@@ -60,9 +55,9 @@ function ObjectPool:Get(): (jecs.Entity<nil>, Instance)
 		local entity, instance = self._factoryMethod()
 		obj = entity
 		instance.Parent = nil
-		EntityLifecycleSystem:RegisterCleanup(entity, function(entityId)
+		self._lifecycleSystem:RegisterCleanup(entity, function(entityId)
 			if self:IsPooled(entityId) then
-				world:remove(entityId, WorldWrapper:GetDestroyRequestedComponent())
+				self._world:remove(entityId, self._worldWrapper:GetDestroyRequestedComponent())
 			else
 				self:Release(entityId)
 			end
@@ -70,13 +65,13 @@ function ObjectPool:Get(): (jecs.Entity<nil>, Instance)
 		end)
 	end
 	self._inUse[obj] = true
-	local instance = world:get(obj, WorldWrapper:GetInstanceComponent()).Instance
-	world:remove(obj, PoolComponent)
+	local instance = self._world:get(obj, self._worldWrapper:GetInstanceComponent()).Instance
+	self._world:remove(obj, self._poolComponent)
 	return obj, instance
 end
 
 function ObjectPool:Release(entityId: jecs.Entity<nil>)
-	if world:has(entityId, PoolComponent) then
+	if self._world:has(entityId, self._poolComponent) then
 		return
 	end
 
@@ -84,7 +79,7 @@ function ObjectPool:Release(entityId: jecs.Entity<nil>)
 		self._releaseCallback(entityId)
 	end
 
-	local obj = world:get(entityId, WorldWrapper:GetInstanceComponent()).Instance
+	local obj = self._world:get(entityId, self._worldWrapper:GetInstanceComponent()).Instance
 
 	-- сбросить состояние под ваши нужды (позиция, velocity, эффекты)
 	obj.Parent = nil
@@ -96,7 +91,7 @@ function ObjectPool:Release(entityId: jecs.Entity<nil>)
 		obj.CanCollide = true
 	end
 
-	world:set(entityId, PoolComponent)
+	self._world:set(entityId, self._poolComponent)
 	self._inUse[entityId] = nil
 	table.insert(self._free, entityId)
 end
@@ -106,7 +101,7 @@ function ObjectPool:SetReleaseCallback(callback: ReleaseCallback)
 end
 
 function ObjectPool:IsPooled(entityId: jecs.Entity<nil>): boolean
-	return world:has(entityId, PoolComponent)
+	return self._world:has(entityId, self._poolComponent)
 end
 
 return ObjectPool :: ObjectPool

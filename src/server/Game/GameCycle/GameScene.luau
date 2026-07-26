@@ -2,23 +2,15 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerScriptService = game:GetService("ServerScriptService")
 
 local Consts = require(ReplicatedStorage.Shared.Consts)
-
-local Guest = require(ServerScriptService.Server.Game.Npc.Guest)
-local FlourBag = require(ServerScriptService.Server.Game.Furniture.FlourBag)
-local MeatSteakFridge = require(ServerScriptService.Server.Game.Furniture.MeatSteakFridge)
-local Trashcan = require(ServerScriptService.Server.Game.Furniture.Trashcan)
-local KitchenTable = require(ServerScriptService.Server.Game.Furniture.KitchenTable)
-local Plate = require(ServerScriptService.Server.Game.Items.Plate)
-local PlaceHolder = require(ServerScriptService.Server.Components.PlaceHolder)
 
 export type GameScene = {
 	instanceRoots: { Instance },
 	hasStarterScene: boolean,
 	worldWrapper: any,
 	buildingSystem: any,
+	catalog: any,
 	DisableBuildingForPlayers: (self: GameScene) -> (),
 	SetFurnitureAnchored: (self: GameScene, anchored: boolean) -> (),
 	Clear: (self: GameScene) -> (),
@@ -29,12 +21,13 @@ export type GameScene = {
 local GameScene = {}
 GameScene.__index = GameScene
 
-function GameScene.new(worldWrapper, buildingSystem): GameScene
+function GameScene.new(worldWrapper, buildingSystem, catalog): GameScene
 	return setmetatable({
 		instanceRoots = {},
 		hasStarterScene = false,
 		worldWrapper = worldWrapper,
 		buildingSystem = buildingSystem,
+		catalog = catalog,
 	}, GameScene) :: any
 end
 
@@ -81,7 +74,7 @@ end
 function GameScene:Clear()
 	local world = self.worldWrapper:GetWorld()
 	self:DisableBuildingForPlayers()
-	Guest.CancelAll()
+	self.catalog.Guest.CancelAll()
 	for _, player in Players:GetPlayers() do
 		local character = player.Character
 		if character then
@@ -119,46 +112,46 @@ function GameScene:Clear()
 end
 
 function GameScene:CreateStarterScene()
-	local _, trashcan = Trashcan.Create()
+	local _, trashcan = self.catalog.Furniture.Trashcan.Create()
 	track(self, trashcan).Parent = workspace
 	trashcan:SetPrimaryPartCFrame(CFrame.new(Vector3.new(10, 1.5, 3)))
 
-	local _, flourBag = FlourBag.Create()
+	local _, flourBag = self.catalog.Furniture.FlourBag.Create()
 	track(self, flourBag).Parent = workspace
 	flourBag:SetPrimaryPartCFrame(CFrame.new(Vector3.new(4, 1.5, 3)))
 
-	local _, fridge = MeatSteakFridge.Create()
+	local _, fridge = self.catalog.Furniture.MeatSteakFridge.Create()
 	track(self, fridge).Parent = workspace
 	fridge:SetPrimaryPartCFrame(CFrame.new(Vector3.new(7, 2.5, 0)))
 
-	local _, kitchenTable1 = KitchenTable.Create()
+	local _, kitchenTable1 = self.catalog.Furniture.KitchenTable.Create()
 	track(self, kitchenTable1).Parent = workspace
 	kitchenTable1:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-6, 1.5, -3)))
 
-	local _, kitchenTable2 = KitchenTable.Create()
+	local _, kitchenTable2 = self.catalog.Furniture.KitchenTable.Create()
 	track(self, kitchenTable2).Parent = workspace
 	kitchenTable2:SetPrimaryPartCFrame(CFrame.new(Vector3.new(-1, 1.5, -3)))
 
-	local _, kitchenTable3, tablePlaceHolder = KitchenTable.Create()
+	local _, kitchenTable3, tablePlaceHolder = self.catalog.Furniture.KitchenTable.Create()
 	track(self, kitchenTable3).Parent = workspace
 	kitchenTable3:SetPrimaryPartCFrame(CFrame.new(Vector3.new(6, 1.5, -3)))
 
-	local plateEntity1, plate1, platePlaceHolder1 = Plate.Create()
+	local plateEntity1, plate1, platePlaceHolder1 = self.catalog.Plate.Create()
 	track(self, plate1).Parent = workspace
-	PlaceHolder.System:Place(tablePlaceHolder, plateEntity1)
+	self.catalog.PlaceHolder.System:Place(tablePlaceHolder, plateEntity1)
 
-	local plateEntity2, plate2, platePlaceHolder2 = Plate.Create()
+	local plateEntity2, plate2, platePlaceHolder2 = self.catalog.Plate.Create()
 	track(self, plate2).Parent = workspace
-	PlaceHolder.System:Place(platePlaceHolder1, plateEntity2)
+	self.catalog.PlaceHolder.System:Place(platePlaceHolder1, plateEntity2)
 
-	local plateEntity3, plate3 = Plate.Create()
+	local plateEntity3, plate3 = self.catalog.Plate.Create()
 	track(self, plate3).Parent = workspace
-	PlaceHolder.System:Place(platePlaceHolder2, plateEntity3)
+	self.catalog.PlaceHolder.System:Place(platePlaceHolder2, plateEntity3)
 end
 
 function GameScene:SpawnGuests(guestCount: number)
 	for _ = 1, guestCount do
-		local _, guest = Guest.Create()
+		local _, guest = self.catalog.Guest.Create()
 		track(self, guest).Parent = workspace
 	end
 end

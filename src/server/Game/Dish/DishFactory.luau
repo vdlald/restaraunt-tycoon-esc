@@ -9,11 +9,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Types)
 local ObjectPool = require(ServerScriptService.Server.ObjectPool)
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
-local IngredientFactory = require(ServerScriptService.Server.Game.Ingredient.IngredientFactory)
-
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
-
 --
 -- DishForm
 export type DishForm = {
@@ -28,18 +23,22 @@ export type DishForm = {
 local DishSystem = Class.defineClass("DishSystem", AbstractSystem)
 
 function DishSystem.new(
+	worldWrapper,
+	ingredientFactory,
 	DishPool, -- пул объектов
 	DishComponent, -- система для компонента
 	CombineIngredients: (self: DishSystem, jecs.Entity<nil>, jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance),
 	CombineDish: (self: DishSystem, jecs.Entity<nil>, jecs.Entity<nil>) -> () -- объединяет игридиенты в блюдо
 ): AbstractSystem.AbstractSystem
-	local parent = AbstractSystem.new()
+	local parent = AbstractSystem.new(worldWrapper)
 	local self = setmetatable(parent, DishSystem)
 
 	self.DishPool = DishPool
 	self.DishComponent = DishComponent
 	self._combineIngredients = CombineIngredients
 	self._combineDish = CombineDish
+	self.worldWrapper = worldWrapper
+	self.ingredientFactory = ingredientFactory
 
 	return self
 end
@@ -51,10 +50,10 @@ function DishSystem:HandleInteraction(
 	playerView: Types.PlayerView,
 	keyCode: Enum.KeyCode
 ): boolean
-	if world:has(target, IngredientFactory:GetAbstractIngredientComponent()) then
+	if self.world:has(target, self.ingredientFactory:GetAbstractIngredientComponent()) then
 		return self:combineIngredients(target, playerView, keyCode)
 	end
-	if world:has(target, self.DishComponent) then
+	if self.world:has(target, self.DishComponent) then
 		return self:combineDish(target, playerView, keyCode)
 	end
 	return false
@@ -66,7 +65,7 @@ function DishSystem:combineIngredients(target: jecs.Entity<nil>, playerView: Typ
 	end
 
 	local equipped = playerView:GetEquippedTool()
-	if not equipped or not world:has(equipped, IngredientFactory:GetAbstractIngredientComponent()) then
+	if not equipped or not self.world:has(equipped, self.ingredientFactory:GetAbstractIngredientComponent()) then
 		-- Если в руках ничего нет или держим не ингредиент, то выходим
 		return false
 	end
@@ -81,7 +80,7 @@ function DishSystem:combineIngredients(target: jecs.Entity<nil>, playerView: Typ
 	end
 
 	nextInstance.Parent = workspace
-	world:set(target, WorldWrapper:GetReplaceTargetComponent(), { NewTarget = nextEntity })
+	self.world:set(target, self.worldWrapper:GetReplaceTargetComponent(), { NewTarget = nextEntity })
 
 	return true
 end
@@ -92,7 +91,7 @@ function DishSystem:combineDish(target: jecs.Entity<nil>, playerView: Types.Play
 	end
 
 	local equipped = playerView:GetEquippedTool()
-	if not equipped or not world:has(equipped, IngredientFactory:GetAbstractIngredientComponent()) then
+	if not equipped or not self.world:has(equipped, self.ingredientFactory:GetAbstractIngredientComponent()) then
 		-- Если в руках ничего нет или держим не ингредиент, то выходим
 		return false
 	end
@@ -107,39 +106,56 @@ function DishSystem:combineDish(target: jecs.Entity<nil>, playerView: Types.Play
 	end
 
 	nextInstance.Parent = workspace
-	world:set(target, WorldWrapper:GetReplaceTargetComponent(), { NewTarget = nextEntity })
+	self.world:set(target, self.worldWrapper:GetReplaceTargetComponent(), { NewTarget = nextEntity })
 
 	return true
 end
 
 --
 -- Фабрика
-local DishFactory = Class.defineClass("DishFactory")
+local DishFactory = {}
+DishFactory.__index = DishFactory
 
-local abstractDishComponent = world:component()
+function DishFactory.new(worldWrapper, lifecycleSystem, ingredientFactory)
+	local world = worldWrapper:GetWorld()
+	return setmetatable({
+		worldWrapper = worldWrapper,
+		lifecycleSystem = lifecycleSystem,
+		ingredientFactory = ingredientFactory,
+		world = world,
+		abstractDishComponent = world:component(),
+	}, DishFactory)
+end
 
 function DishFactory:GetAbstractDishComponent(): jecs.Id<nil>
-	return abstractDishComponent
+	return self.abstractDishComponent
 end
 
 function DishFactory:DefineDish(DishForm: DishForm)
 	local module = {}
 
-	local DishComponent = world:component()
+	local DishComponent = self.world:component()
 
 	module.Component = DishComponent
 
-	module.Pool = ObjectPool.new(function()
+	module.Pool = ObjectPool.new(self.worldWrapper, self.lifecycleSystem, function()
 		local instance: Tool = DishForm.Template:Clone()
-		local entity = WorldWrapper:RegisterInstance(instance, DishForm.DishName)
-		world:set(entity, abstractDishComponent)
-		world:set(entity, DishComponent)
-		world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
+		local entity = self.worldWrapper:RegisterInstance(instance, DishForm.DishName)
+		self.world:set(entity, self.abstractDishComponent)
+		self.world:set(entity, DishComponent)
+		self.world:set(entity, self.worldWrapper:GetPlayerInteractableComponent())
 
 		return entity, instance
 	end, 5)
 
-	module.System = DishSystem.new(module.Pool, DishComponent, DishForm.CombineIngredients, DishForm.CombineDish)
+	module.System = DishSystem.new(
+		self.worldWrapper,
+		self.ingredientFactory,
+		module.Pool,
+		DishComponent,
+		DishForm.CombineIngredients,
+		DishForm.CombineDish
+	)
 
 	return module
 end

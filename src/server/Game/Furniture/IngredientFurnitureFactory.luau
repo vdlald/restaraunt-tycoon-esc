@@ -11,9 +11,6 @@ local Types = require(ServerScriptService.Server.Types)
 local ObjectPool = require(ServerScriptService.Server.ObjectPool)
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
 
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
-
 --
 -- IngredientFurnitureForm
 export type IngredientFurnitureForm = {
@@ -28,11 +25,12 @@ export type IngredientFurnitureForm = {
 local IngredientFurnitureSystem = Class.defineClass("IngredientFurnitureSystem", AbstractSystem)
 
 function IngredientFurnitureSystem.new(
+	worldWrapper,
 	furnitureComponent: jecs.Id<nil>,
 	ingredientComponent: jecs.Id<nil>,
 	ingredientPool: ObjectPool.ObjectPool
 )
-	local parent = AbstractSystem.new()
+	local parent = AbstractSystem.new(worldWrapper)
 	local self = setmetatable(parent, IngredientFurnitureSystem)
 
 	self.furnitureComponent = furnitureComponent
@@ -49,7 +47,7 @@ function IngredientFurnitureSystem:HandleInteraction(
 	playerView: Types.PlayerView,
 	keyCode: Enum.KeyCode
 ): boolean
-	if not world:has(entityId, self.furnitureComponent) then
+	if not self.world:has(entityId, self.furnitureComponent) then
 		return false
 	end
 
@@ -76,34 +74,44 @@ function IngredientFurnitureSystem:processPlayerInteract(
 		return
 	end
 
-	if world:has(equippedTool, self.ingredientComponent) then
+	if self.world:has(equippedTool, self.ingredientComponent) then
 		playerView:TakeFromHands()
-		WorldWrapper:RequestDestroy(equippedTool)
+		self.worldWrapper:RequestDestroy(equippedTool)
 	end
 end
 
 --
 -- Фабрика
-local IngredientFurnitureFactory = Class.defineClass("IngredientFurnitureFactory")
+local IngredientFurnitureFactory = {}
+IngredientFurnitureFactory.__index = IngredientFurnitureFactory
+
+function IngredientFurnitureFactory.new(worldWrapper)
+	return setmetatable({ worldWrapper = worldWrapper, world = worldWrapper:GetWorld() }, IngredientFurnitureFactory)
+end
 
 function IngredientFurnitureFactory:DefineFurniture(form: IngredientFurnitureForm)
 	local module = {}
 
-	local furnitureComponent = world:component()
+	local furnitureComponent = self.world:component()
 
 	module.Component = furnitureComponent
 
 	module.Create = function(): (jecs.Entity<nil>, Instance)
 		local instance: Instance = form.Template:Clone()
-		local entity = WorldWrapper:RegisterInstance(instance, form.FurnitureName)
-		world:set(entity, furnitureComponent)
-		world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
-		world:set(entity, WorldWrapper:GetBuildingMovableComponent())
+		local entity = self.worldWrapper:RegisterInstance(instance, form.FurnitureName)
+		self.world:set(entity, furnitureComponent)
+		self.world:set(entity, self.worldWrapper:GetPlayerInteractableComponent())
+		self.world:set(entity, self.worldWrapper:GetBuildingMovableComponent())
 
 		return entity, instance
 	end
 
-	module.System = IngredientFurnitureSystem.new(furnitureComponent, form.IngredientComponent, form.IngredientPool)
+	module.System = IngredientFurnitureSystem.new(
+		self.worldWrapper,
+		furnitureComponent,
+		form.IngredientComponent,
+		form.IngredientPool
+	)
 
 	return module
 end

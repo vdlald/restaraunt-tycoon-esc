@@ -11,9 +11,6 @@ local Utils = require(ReplicatedStorage.Shared.Utils)
 
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
 local Types = require(ServerScriptService.Server.Types)
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
-
 export type GuestState = "Arriving" | "WaitingForService" | "Leaving"
 export type GuestNpcComponent = jecs.Id<{
 	State: GuestState,
@@ -21,14 +18,21 @@ export type GuestNpcComponent = jecs.Id<{
 	MovementStarted: boolean,
 }>
 
-local GuestNpcComponent = world:component() :: GuestNpcComponent
+type GuestContext = {
+	worldWrapper: any,
+	world: any,
+	dishFactory: any,
+	component: GuestNpcComponent,
+	onFed: (Player, jecs.Entity<nil>, jecs.Entity<nil>) -> number?,
+	onExited: (jecs.Entity<nil>) -> (),
+}
 
 local SpawnPosition = Vector3.new(-12, 0, 0)
 local ServicePosition = Vector3.new(0, 0, 0)
 local ExitPosition = Vector3.new(12, 0, 0)
 local MaxPathAttempts = 3
 
-local onFed: (Player, jecs.Entity<nil>, jecs.Entity<nil>) -> number? = function(
+local defaultOnFed: (Player, jecs.Entity<nil>, jecs.Entity<nil>) -> number? = function(
 	_: Player,
 	_: jecs.Entity<nil>,
 	_: jecs.Entity<nil>
@@ -36,52 +40,63 @@ local onFed: (Player, jecs.Entity<nil>, jecs.Entity<nil>) -> number? = function(
 	return nil
 end
 
-local onExited: (jecs.Entity<nil>) -> () = function(_: jecs.Entity<nil>) end
+local defaultOnExited: (jecs.Entity<nil>) -> () = function(_: jecs.Entity<nil>) end
 
-local function getGuestModel(entityId: jecs.Entity<nil>): Model?
-	local instance = WorldWrapper:FindInstance(entityId)
+local function getGuestModel(context: GuestContext, entityId: jecs.Entity<nil>): Model?
+	local instance = context.worldWrapper:FindInstance(entityId)
 	if instance and instance:IsA("Model") then
 		return instance
 	end
 	return nil
 end
 
-local function isMovementCurrent(entityId: jecs.Entity<nil>, movementId: number, state: GuestState): boolean
-	if not world:contains(entityId) then
+local function isMovementCurrent(
+	context: GuestContext,
+	entityId: jecs.Entity<nil>,
+	movementId: number,
+	state: GuestState
+): boolean
+	if not context.world:contains(entityId) then
 		return false
 	end
-	local guestState = world:get(entityId, GuestNpcComponent)
+	local guestState = context.world:get(entityId, context.component)
 	return guestState ~= nil and guestState.MovementId == movementId and guestState.State == state
 end
 
-local function finishArrival(entityId: jecs.Entity<nil>, movementId: number)
-	if not isMovementCurrent(entityId, movementId, "Arriving") then
+local function finishArrival(context: GuestContext, entityId: jecs.Entity<nil>, movementId: number)
+	if not isMovementCurrent(context, entityId, movementId, "Arriving") then
 		return
 	end
 
-	world:set(entityId, GuestNpcComponent, {
+	context.world:set(entityId, context.component, {
 		State = "WaitingForService",
 		MovementId = movementId,
 		MovementStarted = true,
 	})
-	world:set(entityId, WorldWrapper:GetPlayerInteractableComponent())
+	context.world:set(entityId, context.worldWrapper:GetPlayerInteractableComponent())
 end
 
-local function finishExit(entityId: jecs.Entity<nil>, movementId: number)
-	if not isMovementCurrent(entityId, movementId, "Leaving") then
+local function finishExit(context: GuestContext, entityId: jecs.Entity<nil>, movementId: number)
+	if not isMovementCurrent(context, entityId, movementId, "Leaving") then
 		return
 	end
 
-	local guest = WorldWrapper:FindInstance(entityId)
+	local guest = context.worldWrapper:FindInstance(entityId)
 	if guest then
 		guest.Parent = nil
 	end
-	onExited(entityId)
+	context.onExited(entityId)
 end
 
-local function moveGuest(entityId: jecs.Entity<nil>, movementId: number, state: GuestState, destination: Vector3)
+local function moveGuest(
+	context: GuestContext,
+	entityId: jecs.Entity<nil>,
+	movementId: number,
+	state: GuestState,
+	destination: Vector3
+)
 	task.spawn(function()
-		local guest = getGuestModel(entityId)
+		local guest = getGuestModel(context, entityId)
 		if not guest then
 			warn(`Guest {entityId} is not a Model`)
 			return
@@ -97,7 +112,7 @@ local function moveGuest(entityId: jecs.Entity<nil>, movementId: number, state: 
 		end)
 
 		for _ = 1, MaxPathAttempts do
-			if not isMovementCurrent(entityId, movementId, state) then
+			if not isMovementCurrent(context, entityId, movementId, state) then
 				return
 			end
 
@@ -112,7 +127,7 @@ local function moveGuest(entityId: jecs.Entity<nil>, movementId: number, state: 
 				end)
 				local reachedDestination = true
 				for _, waypoint in path:GetWaypoints() do
-					if not isMovementCurrent(entityId, movementId, state) then
+					if not isMovementCurrent(context, entityId, movementId, state) then
 						blockedConnection:Disconnect()
 						return
 					end
@@ -128,96 +143,79 @@ local function moveGuest(entityId: jecs.Entity<nil>, movementId: number, state: 
 				blockedConnection:Disconnect()
 				if reachedDestination then
 					if state == "Arriving" then
-						finishArrival(entityId, movementId)
+						finishArrival(context, entityId, movementId)
 					else
-						finishExit(entityId, movementId)
+						finishExit(context, entityId, movementId)
 					end
 					return
 				end
 			end
 		end
 
-		if not isMovementCurrent(entityId, movementId, state) then
+		if not isMovementCurrent(context, entityId, movementId, state) then
 			return
 		end
 		warn(`Guest {entityId} could not build a path; using direct movement`)
 		humanoid:MoveTo(destination)
 		if humanoid.MoveToFinished:Wait() then
 			if state == "Arriving" then
-				finishArrival(entityId, movementId)
+				finishArrival(context, entityId, movementId)
 			else
-				finishExit(entityId, movementId)
+				finishExit(context, entityId, movementId)
 			end
 		end
 	end)
 end
 
-function CreateGuestNpc(): (jecs.Entity<nil>, Instance)
-	local instance: Instance = ServerStorage.NPC.Guest:Clone()
-	if not instance:IsA("Model") then
-		error("ServerStorage.NPC.Guest must be a Model")
-	end
-	local entity = WorldWrapper:RegisterInstance(instance, "GuestNpc")
-	world:set(entity, GuestNpcComponent, {
-		State = "Arriving",
-		MovementId = 0,
-		MovementStarted = false,
-	})
-
-	instance:PivotTo(CFrame.new(SpawnPosition))
-	return entity, instance
-end
-
 local System = Class.defineClass("System", AbstractSystem)
 
-function System.new()
-	local parent = AbstractSystem.new()
+function System.new(worldContext, context: GuestContext)
+	local parent = AbstractSystem.new(worldContext)
 	local self = setmetatable(parent, System)
-	self.guestsQuery = world:query(GuestNpcComponent):cached()
+	self.context = context
+	self.guestsQuery = self.world:query(context.component):cached()
 	return self
 end
 
 function System:Process(_: number)
 	for entityId, guestState in self.guestsQuery do
 		if not guestState.MovementStarted then
-			local guest = WorldWrapper:FindInstance(entityId)
+			local guest = self.context.worldWrapper:FindInstance(entityId)
 			if guest and guest.Parent then
 				guestState.MovementStarted = true
-				world:set(entityId, GuestNpcComponent, guestState)
-				moveGuest(entityId, guestState.MovementId, guestState.State, ServicePosition)
+				self.world:set(entityId, self.context.component, guestState)
+				moveGuest(self.context, entityId, guestState.MovementId, guestState.State, ServicePosition)
 			end
 		end
 	end
 end
 
-local DishFactory = require(ServerScriptService.Server.Game.Dish.DishFactory)
-
 function System:processPlayerInteract(entityId: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
 	if keyCode ~= Enum.KeyCode.E then
 		return
 	end
-	local guestState = world:get(entityId, GuestNpcComponent)
+	local guestState = self.world:get(entityId, self.context.component)
 	if not guestState or guestState.State ~= "WaitingForService" then
 		return
 	end
 	local equippedTool = playerView:GetEquippedTool()
-	if not equippedTool or not world:has(equippedTool, DishFactory:GetAbstractDishComponent()) then
+	if not equippedTool or not self.world:has(equippedTool, self.context.dishFactory:GetAbstractDishComponent()) then
 		return
 	end
-	local earned = onFed(playerView:GetPlayer(), entityId, equippedTool)
+	local earned = self.context.onFed(playerView:GetPlayer(), entityId, equippedTool)
 	if not earned then
 		return
 	end
 
-	WorldWrapper:RequestDestroy(equippedTool)
+	self.context.worldWrapper:RequestDestroy(equippedTool)
 	playerView:TakeFromHands()
-	world:remove(entityId, WorldWrapper:GetPlayerInteractableComponent())
-	world:set(entityId, GuestNpcComponent, {
+	self.world:remove(entityId, self.context.worldWrapper:GetPlayerInteractableComponent())
+	self.world:set(entityId, self.context.component, {
 		State = "Leaving",
 		MovementId = guestState.MovementId + 1,
 		MovementStarted = true,
 	})
-	moveGuest(entityId, guestState.MovementId + 1, "Leaving", ExitPosition)
+	moveGuest(self.context, entityId, guestState.MovementId + 1, "Leaving", ExitPosition)
 end
 
 function System:HandleInteraction(
@@ -225,7 +223,7 @@ function System:HandleInteraction(
 	playerView: Types.PlayerView,
 	keyCode: Enum.KeyCode
 ): boolean
-	if not world:has(entityId, GuestNpcComponent) then
+	if not self.world:has(entityId, self.context.component) then
 		return false
 	end
 	Utils:safeCall(`{self.ClassName}:processPlayerInteract`, function()
@@ -234,23 +232,54 @@ function System:HandleInteraction(
 	return true
 end
 
-return {
-	Create = CreateGuestNpc,
-	Component = GuestNpcComponent,
-	System = System.new(),
-	SetFedHandler = function(handler: (Player, jecs.Entity<nil>, jecs.Entity<nil>) -> number?)
-		onFed = handler
-	end,
-	SetExitedHandler = function(handler: (jecs.Entity<nil>) -> ())
-		onExited = handler
-	end,
-	CancelAll = function()
-		for entityId, guestState in world:query(GuestNpcComponent) do
-			world:set(entityId, GuestNpcComponent, {
-				State = guestState.State,
-				MovementId = guestState.MovementId + 1,
-				MovementStarted = true,
-			})
+local Guest = {}
+
+function Guest.new(worldContext, dishFactory)
+	local context: GuestContext = {
+		worldWrapper = worldContext,
+		world = worldContext:GetWorld(),
+		dishFactory = dishFactory,
+		component = worldContext:GetWorld():component(),
+		onFed = defaultOnFed,
+		onExited = defaultOnExited,
+	}
+
+	local function createGuestNpc(): (jecs.Entity<nil>, Instance)
+		local instance: Instance = ServerStorage.NPC.Guest:Clone()
+		if not instance:IsA("Model") then
+			error("ServerStorage.NPC.Guest must be a Model")
 		end
-	end,
-}
+		local entity = context.worldWrapper:RegisterInstance(instance, "GuestNpc")
+		context.world:set(entity, context.component, {
+			State = "Arriving",
+			MovementId = 0,
+			MovementStarted = false,
+		})
+
+		instance:PivotTo(CFrame.new(SpawnPosition))
+		return entity, instance
+	end
+
+	return {
+		Create = createGuestNpc,
+		Component = context.component,
+		System = System.new(worldContext, context),
+		SetFedHandler = function(handler: (Player, jecs.Entity<nil>, jecs.Entity<nil>) -> number?)
+			context.onFed = handler
+		end,
+		SetExitedHandler = function(handler: (jecs.Entity<nil>) -> ())
+			context.onExited = handler
+		end,
+		CancelAll = function()
+			for entityId, guestState in context.world:query(context.component) do
+				context.world:set(entityId, context.component, {
+					State = guestState.State,
+					MovementId = guestState.MovementId + 1,
+					MovementStarted = true,
+				})
+			end
+		end,
+	}
+end
+
+return Guest

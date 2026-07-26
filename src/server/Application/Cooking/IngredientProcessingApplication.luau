@@ -1,33 +1,40 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
+local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Consts = require(ReplicatedStorage.Shared.Consts)
+local World = require(ServerScriptService.Server.World)
+local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
+local IngredientFactory = require(ServerScriptService.Server.Game.Ingredient.IngredientFactory)
+
+type GameplayCatalog = {
+	IngredientFactory: typeof(IngredientFactory.new(World, nil)),
+	IsPooled: (self: GameplayCatalog, entityId: jecs.Entity<nil>) -> boolean,
+}
 
 local IngredientProcessingApplication = {}
 IngredientProcessingApplication.__index = IngredientProcessingApplication
 
 export type IngredientProcessingApplication = {
-	worldWrapper: any,
-	gameCycle: any,
-	objectPool: any,
-	ingredientFactory: any,
+	worldWrapper: World.WorldWrapper,
+	gameCycle: typeof(GameCycle.new()),
+	catalog: GameplayCatalog,
 	StartProcessing: (self: IngredientProcessingApplication, player: Player, entityId: number) -> (),
 	StopProcessing: (self: IngredientProcessingApplication, player: Player) -> (),
 }
 
 function IngredientProcessingApplication.new(
-	worldWrapper,
-	gameCycle,
-	objectPool,
-	ingredientFactory
+	worldWrapper: World.WorldWrapper,
+	gameCycle: typeof(GameCycle.new()),
+	catalog: GameplayCatalog
 ): IngredientProcessingApplication
 	return setmetatable({
 		worldWrapper = worldWrapper,
 		gameCycle = gameCycle,
-		objectPool = objectPool,
-		ingredientFactory = ingredientFactory,
-	}, IngredientProcessingApplication) :: any
+		catalog = catalog,
+	}, IngredientProcessingApplication) :: IngredientProcessingApplication
 end
 
 function IngredientProcessingApplication:StartProcessing(player: Player, entityId: number)
@@ -41,9 +48,9 @@ function IngredientProcessingApplication:StartProcessing(player: Player, entityI
 		return
 	end
 	if
-		not world:has(entityId, self.ingredientFactory:GetProcessableIngredientComponent())
+		not world:has(entityId, self.catalog.IngredientFactory:GetProcessableIngredientComponent())
 		or not world:has(entityId, self.worldWrapper:GetPlayerInteractableComponent())
-		or self.objectPool:IsPooled(entityId)
+		or self.catalog:IsPooled(entityId)
 	then
 		return
 	end

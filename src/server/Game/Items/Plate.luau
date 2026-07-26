@@ -6,36 +6,29 @@ local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
 
-local ServerScriptService = game:GetService("ServerScriptService")
+local Plate = {}
 
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
+function Plate.new(worldContext, placeHolder)
+	local world = worldContext:GetWorld()
+	local plateComponent = world:component() :: jecs.Id<nil>
 
---
--- Компонент
-export type PlateComponent = jecs.Id<nil>
-local plateComponent = world:component() :: PlateComponent
+	local function createPlate(): (jecs.Entity<nil>, Instance)
+		local instance: Instance = ServerStorage.Items.Plate:Clone()
+		local top = instance:WaitForChild("Handle")
+		local placeHolderEntity, _ = placeHolder.Create(top)
 
---
--- Объявление сущности
-local PlaceHolder = require(ServerScriptService.Server.Components.PlaceHolder)
+		local entity = worldContext:RegisterInstance(instance, "Plate")
+		world:set(entity, plateComponent)
+		world:set(entity, worldContext:GetPlayerInteractableComponent())
+		world:set(entity, worldContext:GetChildEntitiesComponent(), { Entities = { placeHolderEntity } })
 
-function CreatePlate(): (jecs.Entity<nil>, Instance)
-	local instance: Instance = ServerStorage.Items.Plate:Clone()
-	local top = instance:WaitForChild("Handle")
-	local placeHolderEntity, _ = PlaceHolder.Create(top)
+		return entity, instance, placeHolderEntity
+	end
 
-	local entity = WorldWrapper:RegisterInstance(instance, "Plate")
-	world:set(entity, plateComponent)
-	world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
-	world:set(entity, WorldWrapper:GetChildEntitiesComponent(), { Entities = { placeHolderEntity } })
-
-	return entity, instance, placeHolderEntity
+	return {
+		Create = createPlate,
+		Component = plateComponent,
+	}
 end
 
---
--- Модуль
-return {
-	Create = CreatePlate,
-	Component = plateComponent,
-}
+return Plate

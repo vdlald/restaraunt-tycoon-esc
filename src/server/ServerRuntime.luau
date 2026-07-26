@@ -11,14 +11,13 @@ local NetworkHandlers = require(ServerScriptService.Server.NetworkHandlers)
 local PlayerDataSync = require(ServerScriptService.Server.PlayerDataSync)
 local GameLoop = require(ServerScriptService.Server.GameLoop)
 local GameContext = require(ServerScriptService.Server.GameContext)
-local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
 local ServerApplication = require(ServerScriptService.Server.Application.ServerApplication)
 
 local ServerRuntime = {}
 
 function ServerRuntime:Start()
 	local context = GameContext.new()
-	GameCycle:Configure(context)
+	context.GameCycle:Configure(context)
 	local applications = ServerApplication.new(context)
 	PartyServer:Start()
 	MatchLifecycle:Start(context)

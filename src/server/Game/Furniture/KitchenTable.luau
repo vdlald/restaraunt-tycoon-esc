@@ -6,36 +6,30 @@ local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
 
-local ServerScriptService = game:GetService("ServerScriptService")
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
+local KitchenTable = {}
 
---
--- Компонент
-export type KitchenTableComponent = jecs.Id<nil>
-local kitchenTableComponent = world:component() :: KitchenTableComponent
+function KitchenTable.new(worldContext, placeHolder)
+	local world = worldContext:GetWorld()
+	local kitchenTableComponent = world:component() :: jecs.Id<nil>
 
---
--- Объявление сущности
-local PlaceHolder = require(ServerScriptService.Server.Components.PlaceHolder)
+	local function createKitchenTable(): (jecs.Entity<nil>, Instance)
+		local instance: Instance = ServerStorage.Furniture.KitchenTable:Clone()
+		local top = instance:WaitForChild("top_geom")
 
-function CreateKitchenTable(): (jecs.Entity<nil>, Instance)
-	local instance: Instance = ServerStorage.Furniture.KitchenTable:Clone()
-	local top = instance:WaitForChild("top_geom")
+		local placeHolderEntity, _ = placeHolder.Create(top)
 
-	local placeHolderEntity, _ = PlaceHolder.Create(top)
+		local entity = worldContext:RegisterInstance(instance, "KitchenTable")
+		world:set(entity, kitchenTableComponent)
+		world:set(entity, worldContext:GetBuildingMovableComponent())
+		world:set(entity, worldContext:GetChildEntitiesComponent(), { Entities = { placeHolderEntity } })
 
-	local entity = WorldWrapper:RegisterInstance(instance, "KitchenTable")
-	world:set(entity, kitchenTableComponent)
-	world:set(entity, WorldWrapper:GetBuildingMovableComponent())
-	world:set(entity, WorldWrapper:GetChildEntitiesComponent(), { Entities = { placeHolderEntity } })
+		return entity, instance, placeHolderEntity
+	end
 
-	return entity, instance, placeHolderEntity
+	return {
+		Create = createKitchenTable,
+		Component = kitchenTableComponent,
+	}
 end
 
---
--- Модуль
-return {
-	Create = CreateKitchenTable,
-	Component = kitchenTableComponent,
-}
+return KitchenTable

@@ -12,9 +12,6 @@ local Types = require(ServerScriptService.Server.Types)
 local ObjectPool = require(ServerScriptService.Server.ObjectPool)
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
 
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
-
 --
 -- IngredientForm
 export type IngredientForm = {
@@ -29,12 +26,13 @@ export type IngredientForm = {
 local IngredientSystem = Class.defineClass("IngredientSystem", AbstractSystem)
 
 function IngredientSystem.new(
+	worldWrapper,
 	ingredientPool, -- пул объектов
 	ingredientComponent, -- система для компонента
 	handsMorphFunc: ((jecs.Entity<nil>) -> (jecs.Entity<nil>, Instance))?,
 	processDurationSeconds: number
 ): AbstractSystem.AbstractSystem
-	local parent = AbstractSystem.new()
+	local parent = AbstractSystem.new(worldWrapper)
 	local self = setmetatable(parent, IngredientSystem)
 
 	self.ingredientPool = ingredientPool
@@ -42,6 +40,7 @@ function IngredientSystem.new(
 	self.handsMorphFunc = handsMorphFunc
 	self.processDurationSeconds = processDurationSeconds
 	self.stateSyncElapsed = 0
+	self.worldWrapper = worldWrapper
 
 	return self
 end
@@ -61,12 +60,12 @@ function IngredientSystem:sendProcessState(
 end
 
 function IngredientSystem:clearParticipants(target: jecs.Entity<nil>)
-	self:query(WorldWrapper:GetIngredientProcessingComponent()):forEach(function(playerEntity, processing)
+	self:query(self.worldWrapper:GetIngredientProcessingComponent()):forEach(function(playerEntity, processing)
 		if not playerEntity then
 			return
 		end
 		if processing.Target == target then
-			world:remove(playerEntity, WorldWrapper:GetIngredientProcessingComponent())
+			self.world:remove(playerEntity, self.worldWrapper:GetIngredientProcessingComponent())
 		end
 		return playerEntity
 	end)
@@ -74,9 +73,9 @@ end
 
 function IngredientSystem:clearProcessState(target: jecs.Entity<nil>)
 	self:clearParticipants(target)
-	local progress = world:get(target, WorldWrapper:GetIngredientProgressComponent())
+	local progress = self.world:get(target, self.worldWrapper:GetIngredientProgressComponent())
 	if progress then
-		world:remove(target, WorldWrapper:GetIngredientProgressComponent())
+		self.world:remove(target, self.worldWrapper:GetIngredientProgressComponent())
 		self:sendProcessState(target, progress.Elapsed, 0, false)
 	end
 end
@@ -87,7 +86,7 @@ function IngredientSystem:isValidParticipant(playerView: Types.PlayerView, targe
 		return false
 	end
 
-	local instance = WorldWrapper:FindInstance(target)
+	local instance = self.worldWrapper:FindInstance(target)
 	if not instance or instance.Parent == nil then
 		return false
 	end
@@ -100,7 +99,7 @@ end
 
 function IngredientSystem:getParticipantCount(target: jecs.Entity<nil>): number
 	local count = 0
-	self:query(WorldWrapper:GetPlayerComponent(), WorldWrapper:GetIngredientProcessingComponent())
+	self:query(self.worldWrapper:GetPlayerComponent(), self.worldWrapper:GetIngredientProcessingComponent())
 		:forEach(function(playerEntity, playerComponent, processing)
 			if not playerEntity then
 				return
@@ -112,7 +111,7 @@ function IngredientSystem:getParticipantCount(target: jecs.Entity<nil>): number
 			if self:isValidParticipant(playerComponent.PlayerView, target) then
 				count += 1
 			else
-				world:remove(playerEntity, WorldWrapper:GetIngredientProcessingComponent())
+				self.world:remove(playerEntity, self.worldWrapper:GetIngredientProcessingComponent())
 			end
 			return playerEntity
 		end)
@@ -125,10 +124,10 @@ function IngredientSystem:processIngredient(target: jecs.Entity<nil>, deltaTime:
 	end
 
 	local participantCount = self:getParticipantCount(target)
-	local progress = world:get(target, WorldWrapper:GetIngredientProgressComponent())
+	local progress = self.world:get(target, self.worldWrapper:GetIngredientProgressComponent())
 	if participantCount == 0 then
 		if progress and progress.ParticipantCount > 0 then
-			world:set(target, WorldWrapper:GetIngredientProgressComponent(), {
+			self.world:set(target, self.worldWrapper:GetIngredientProgressComponent(), {
 				Elapsed = progress.Elapsed,
 				ParticipantCount = 0,
 			})
@@ -141,12 +140,12 @@ function IngredientSystem:processIngredient(target: jecs.Entity<nil>, deltaTime:
 	if elapsed >= self.processDurationSeconds then
 		local nextEntity, nextInstance = self.handsMorphFunc(target)
 		nextInstance.Parent = workspace
-		world:set(target, WorldWrapper:GetReplaceTargetComponent(), { NewTarget = nextEntity })
-		WorldWrapper:RequestDestroy(target)
+		self.world:set(target, self.worldWrapper:GetReplaceTargetComponent(), { NewTarget = nextEntity })
+		self.worldWrapper:RequestDestroy(target)
 		return
 	end
 
-	world:set(target, WorldWrapper:GetIngredientProgressComponent(), {
+	self.world:set(target, self.worldWrapper:GetIngredientProgressComponent(), {
 		Elapsed = elapsed,
 		ParticipantCount = participantCount,
 	})
@@ -174,40 +173,50 @@ end
 
 --
 -- Фабрика
-local IngredientFactory = Class.defineClass("IngredientFactory")
+local IngredientFactory = {}
+IngredientFactory.__index = IngredientFactory
 
-local abstractIngredientComponent = world:component()
-local processableIngredientComponent = world:component()
+function IngredientFactory.new(worldWrapper, lifecycleSystem)
+	local world = worldWrapper:GetWorld()
+	return setmetatable({
+		worldWrapper = worldWrapper,
+		lifecycleSystem = lifecycleSystem,
+		world = world,
+		abstractIngredientComponent = world:component(),
+		processableIngredientComponent = world:component(),
+	}, IngredientFactory)
+end
 
 function IngredientFactory:GetAbstractIngredientComponent(): jecs.Id<nil>
-	return abstractIngredientComponent
+	return self.abstractIngredientComponent
 end
 
 function IngredientFactory:GetProcessableIngredientComponent(): jecs.Id<nil>
-	return processableIngredientComponent
+	return self.processableIngredientComponent
 end
 
 function IngredientFactory:DefineIngredient(ingredientForm: IngredientForm)
 	local module = {}
 
-	local ingredientComponent = world:component()
+	local ingredientComponent = self.world:component()
 
 	module.Component = ingredientComponent
 
-	module.Pool = ObjectPool.new(function()
+	module.Pool = ObjectPool.new(self.worldWrapper, self.lifecycleSystem, function()
 		local instance: Tool = ingredientForm.Template:Clone()
-		local entity = WorldWrapper:RegisterInstance(instance, ingredientForm.IngredientName)
-		world:set(entity, abstractIngredientComponent)
-		world:set(entity, ingredientComponent)
+		local entity = self.worldWrapper:RegisterInstance(instance, ingredientForm.IngredientName)
+		self.world:set(entity, self.abstractIngredientComponent)
+		self.world:set(entity, ingredientComponent)
 		if ingredientForm.HandsMorphFunc then
-			world:set(entity, processableIngredientComponent)
+			self.world:set(entity, self.processableIngredientComponent)
 		end
-		world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
+		self.world:set(entity, self.worldWrapper:GetPlayerInteractableComponent())
 
 		return entity, instance
 	end, 5)
 
 	module.System = IngredientSystem.new(
+		self.worldWrapper,
 		module.Pool,
 		ingredientComponent,
 		ingredientForm.HandsMorphFunc,

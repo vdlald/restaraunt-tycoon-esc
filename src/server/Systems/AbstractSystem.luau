@@ -6,12 +6,6 @@ local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Class = require(ReplicatedStorage.Shared.Class)
 local Utils = require(ReplicatedStorage.Shared.Utils)
 
-local ServerScriptService = game:GetService("ServerScriptService")
-local Types = require(ServerScriptService.Server.Types)
-
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
-
 -- Объявление системы
 local AbstractSystem = Class:defineClass("AbstractSystem")
 
@@ -21,8 +15,10 @@ export type AbstractSystem = {
 	query: <T>(self: AbstractSystem, ...any) -> QueryExt<T>,
 }
 
-function AbstractSystem.new()
+function AbstractSystem.new(worldWrapper)
 	local self = setmetatable({}, AbstractSystem)
+	self.worldWrapper = worldWrapper
+	self.world = worldWrapper:GetWorld()
 	return self
 end
 
@@ -32,7 +28,7 @@ function AbstractSystem:Process(deltaTime: number)
 	end
 end
 
-function AbstractSystem:IsThrottled(deltaTime: number): boolean
+function AbstractSystem:IsThrottled(_: number): boolean
 	return false
 end
 
@@ -70,7 +66,7 @@ end
 type IterCarry = (element: any) -> ...any
 
 function AbstractSystem:query(...): QueryExt
-	return QueryExt.new(world:query(...))
+	return QueryExt.new(self.world:query(...))
 end
 
 return AbstractSystem

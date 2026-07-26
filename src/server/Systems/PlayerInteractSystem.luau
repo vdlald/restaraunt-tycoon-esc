@@ -14,7 +14,7 @@ local InteractionDispatcher = require(ServerScriptService.Server.Systems.Interac
 local PlayerInteractSystem = Class.defineClass("PlayerInteractSystem", AbstractSystem)
 
 function PlayerInteractSystem.new(worldWrapper, dispatcher: InteractionDispatcher.InteractionDispatcher)
-	local parent = AbstractSystem.new()
+	local parent = AbstractSystem.new(worldWrapper)
 	local self = setmetatable(parent, PlayerInteractSystem)
 	self.worldWrapper = worldWrapper
 	self.dispatcher = dispatcher

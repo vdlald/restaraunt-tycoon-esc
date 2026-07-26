@@ -7,25 +7,26 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Consts = require(ReplicatedStorage.Shared.Consts)
 
 local DataManager = require(ServerScriptService.Server.Player.DataManager)
-local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
 local PartyService = require(ServerScriptService.Server.Party.PartyService)
 
 local MatchLifecycle = {}
 
-local matchPartyId: string? = nil
-local lastGamePhase = GameCycle:GetPhase()
-local hasStartedMatch = false
-
 function MatchLifecycle:Start(context)
+	self.gameCycle = context.GameCycle
+	self.matchPartyId = nil
+	self.lastGamePhase = self.gameCycle:GetPhase()
+	self.hasStartedMatch = false
+
 	local worldWrapper = context.World
 	local world = worldWrapper:GetWorld()
 	local buildingSystem = context.Building
+	local gameCycle = self.gameCycle
 	PartyService:SetLeaderChangedHandler(function(party, leaderUserId)
 		local leader = Players:GetPlayerByUserId(leaderUserId)
 		if leader then
-			GameCycle:SetOwner(leader)
+			gameCycle:SetOwner(leader)
 		end
-		matchPartyId = party.id
+		self.matchPartyId = party.id
 	end)
 
 	Players.PlayerAdded:Connect(function(player)
@@ -35,17 +36,17 @@ function MatchLifecycle:Start(context)
 			return
 		end
 
-		matchPartyId = party.id
+		self.matchPartyId = party.id
 		worldWrapper:RegisterPlayer(player)
 		if party.leaderUserId == player.UserId then
-			GameCycle:StartNewMatch(player)
+			gameCycle:StartNewMatch(player)
 		end
 
 		-- The ready handshake is authoritative for initial state. This updates a
 		-- client that became ready while EnterMatch was still completing.
 		task.defer(function()
 			if player.Parent == Players then
-				GameCycle:SendState(player)
+				gameCycle:SendState(player)
 			end
 		end)
 	end)
@@ -64,24 +65,29 @@ function MatchLifecycle:Start(context)
 	end)
 
 	DataManager:OnProfileRemoving(function(player)
-		GameCycle:OnPlayerRemoving(player)
+		gameCycle:OnPlayerRemoving(player)
 	end)
 end
 
 function MatchLifecycle:ProcessPhaseTransition()
-	if matchPartyId then
-		local gamePhase = GameCycle:GetPhase()
-		if gamePhase == GameCycle.Phase.Preparation or gamePhase == GameCycle.Phase.Service then
-			hasStartedMatch = true
+	local gameCycle = self.gameCycle
+	if self.matchPartyId then
+		local gamePhase = gameCycle:GetPhase()
+		if gamePhase == gameCycle.Phase.Preparation or gamePhase == gameCycle.Phase.Service then
+			self.hasStartedMatch = true
 		end
-		if gamePhase == GameCycle.Phase.Service and lastGamePhase ~= GameCycle.Phase.Service then
-			PartyService:SetMatchService(matchPartyId)
-		elseif hasStartedMatch and gamePhase == GameCycle.Phase.Lobby and lastGamePhase ~= GameCycle.Phase.Lobby then
-			PartyService:FinishMatch(matchPartyId)
-			matchPartyId = nil
+		if gamePhase == gameCycle.Phase.Service and self.lastGamePhase ~= gameCycle.Phase.Service then
+			PartyService:SetMatchService(self.matchPartyId)
+		elseif
+			self.hasStartedMatch
+			and gamePhase == gameCycle.Phase.Lobby
+			and self.lastGamePhase ~= gameCycle.Phase.Lobby
+		then
+			PartyService:FinishMatch(self.matchPartyId)
+			self.matchPartyId = nil
 		end
 	end
-	lastGamePhase = GameCycle:GetPhase()
+	self.lastGamePhase = gameCycle:GetPhase()
 end
 
 return MatchLifecycle

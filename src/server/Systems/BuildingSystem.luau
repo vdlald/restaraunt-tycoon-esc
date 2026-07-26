@@ -23,7 +23,7 @@ local Net = require(ReplicatedStorage.Shared.Net)
 local BuildingSystem = Class.defineClass("BuildingSystem", AbstractSystem)
 
 function BuildingSystem.new(worldWrapper)
-	local parent = AbstractSystem.new()
+	local parent = AbstractSystem.new(worldWrapper)
 	local self = setmetatable(parent, BuildingSystem)
 	local world = worldWrapper:GetWorld()
 
@@ -44,12 +44,19 @@ function BuildingSystem.new(worldWrapper)
 	self.canFinalizePurchase = function(): boolean
 		return false
 	end
+	self.trySpendPurchase = function(_: number): boolean
+		return false
+	end
 
 	return self
 end
 
 function BuildingSystem:SetCanFinalizePurchase(callback: () -> boolean)
 	self.canFinalizePurchase = callback
+end
+
+function BuildingSystem:SetPurchaseSpender(callback: (price: number) -> boolean)
+	self.trySpendPurchase = callback
 end
 
 local function getHiddenFolder(): Folder
@@ -443,17 +450,7 @@ function BuildingSystem:attemptPlace(
 			return
 		end
 
-		local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
-		if GameCycle:GetCash() < pendingPurchase.Price then
-			self:CancelMove(playerEntity)
-			Net.furniturePurchaseResult.sendTo({
-				furnitureId = pendingPurchase.FurnitureId,
-				success = false,
-				reason = FurnitureCatalog.PurchaseResultReason.InsufficientCash,
-			}, playerView:GetPlayer())
-			return
-		end
-		if not GameCycle:TrySpendCash(pendingPurchase.Price) then
+		if not self.trySpendPurchase(pendingPurchase.Price) then
 			self:CancelMove(playerEntity)
 			Net.furniturePurchaseResult.sendTo({
 				furnitureId = pendingPurchase.FurnitureId,
@@ -530,4 +527,4 @@ function BuildingSystem:Process(_: number)
 	end)
 end
 
-return BuildingSystem.new(require(ServerScriptService.Server.World))
+return BuildingSystem

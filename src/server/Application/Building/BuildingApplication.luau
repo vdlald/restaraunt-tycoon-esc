@@ -1,18 +1,23 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local Consts = require(ReplicatedStorage.Shared.Consts)
 local Net = require(ReplicatedStorage.Shared.Net)
+local World = require(ServerScriptService.Server.World)
+local BuildingSystem = require(ServerScriptService.Server.Systems.BuildingSystem)
+local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
+local FurnitureStore = require(ServerScriptService.Server.Game.Furniture.FurnitureStore)
 
 local BuildingApplication = {}
 BuildingApplication.__index = BuildingApplication
 
 export type BuildingApplication = {
-	worldWrapper: any,
-	buildingSystem: any,
-	gameCycle: any,
-	furnitureStore: any,
+	worldWrapper: World.WorldWrapper,
+	buildingSystem: typeof(BuildingSystem.new(World)),
+	gameCycle: typeof(GameCycle.new()),
+	furnitureStore: typeof(FurnitureStore.new({})),
 	RequestModeToggle: (self: BuildingApplication, player: Player, enabled: boolean) -> (),
 	CancelMove: (self: BuildingApplication, player: Player) -> (),
 	MoveGhost: (self: BuildingApplication, player: Player, position: Vector3) -> (),
@@ -20,13 +25,18 @@ export type BuildingApplication = {
 	PurchaseFurniture: (self: BuildingApplication, player: Player, furnitureId: string) -> (),
 }
 
-function BuildingApplication.new(worldWrapper, buildingSystem, gameCycle, furnitureStore): BuildingApplication
+function BuildingApplication.new(
+	worldWrapper: World.WorldWrapper,
+	buildingSystem: typeof(BuildingSystem.new(World)),
+	gameCycle: typeof(GameCycle.new()),
+	furnitureStore: typeof(FurnitureStore.new({}))
+): BuildingApplication
 	return setmetatable({
 		worldWrapper = worldWrapper,
 		buildingSystem = buildingSystem,
 		gameCycle = gameCycle,
 		furnitureStore = furnitureStore,
-	}, BuildingApplication) :: any
+	}, BuildingApplication) :: BuildingApplication
 end
 
 function BuildingApplication:RequestModeToggle(player: Player, enabled: boolean)

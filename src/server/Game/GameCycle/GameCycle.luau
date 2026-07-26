@@ -11,7 +11,8 @@ local DataManager = require(ServerScriptService.Server.Player.DataManager)
 local Guest = require(ServerScriptService.Server.Game.Npc.Guest)
 local GameScene = require(ServerScriptService.Server.Game.GameCycle.GameScene)
 local DayEconomy = require(ServerScriptService.Server.Game.GameCycle.DayEconomy)
-local MatchPhaseState = require(ServerScriptService.Server.Game.GameCycle.MatchPhaseState)
+local MatchPhaseState = require(ServerScriptService.Server.Domain.Match.MatchPhaseState)
+local MatchRules = require(ServerScriptService.Server.Domain.Match.MatchRules)
 
 export type GamePhase = SharedGamePhase.GamePhase
 export type GameCycleState = {
@@ -27,27 +28,31 @@ export type GameCycleState = {
 export type ReceiptDish = DayEconomy.ReceiptDish
 export type DayReceipt = DayEconomy.DayReceipt
 
-local GameCycle = {
-	Phase = SharedGamePhase,
-	CountdownDuration = 3,
-	ResultDuration = 5,
-	DishPrices = {
-		Pie = 10,
-	},
-}
+local GameCycle = {}
+GameCycle.__index = GameCycle
 
-GameCycle.state = MatchPhaseState.new()
-GameCycle.scene = nil :: GameScene.GameScene?
-GameCycle.lastSentSecond = -1
-GameCycle.economy = DayEconomy.new(1)
-GameCycle.owner = nil :: Player?
-GameCycle.worldWrapper = nil
+function GameCycle.new()
+	return setmetatable({
+		Phase = SharedGamePhase,
+		CountdownDuration = 3,
+		ResultDuration = 5,
+		state = MatchPhaseState.new(),
+		scene = nil :: GameScene.GameScene?,
+		lastSentSecond = -1,
+		economy = DayEconomy.new(1),
+		owner = nil :: Player?,
+		worldWrapper = nil,
+	}, GameCycle)
+end
 
 function GameCycle:Configure(context)
 	self.worldWrapper = context.World
-	self.scene = GameScene.new(context.World, context.Building)
-	context.Building:SetCanFinalizePurchase(function()
-		return self:CanPurchaseFurniture()
+	self.scene = GameScene.new(context.World, context.Building, context.Catalog)
+	Guest.SetFedHandler(function(player, guestEntity, dishEntity)
+		return self:OnGuestFed(player, guestEntity, dishEntity)
+	end)
+	Guest.SetExitedHandler(function(guestEntity)
+		self:OnGuestExited(guestEntity)
 	end)
 end
 
@@ -57,8 +62,7 @@ function GameCycle:GetScene(): GameScene.GameScene
 end
 
 function GameCycle:GetDayProgression(day: number): (number, number)
-	local guests = day + 2
-	return guests, 30 + 10 * guests
+	return MatchRules.GetDayProgression(day)
 end
 
 function GameCycle:GetState(player: Player?): GameCycleState
@@ -233,7 +237,7 @@ function GameCycle:OnGuestFed(player: Player, _: number, dishEntity: number): nu
 		return nil
 	end
 	local dishName = dish.Name
-	local earned = self.DishPrices[dishName] or 10
+	local earned = MatchRules.GetDishPrice(dishName)
 	self.economy:RecordDish(player, dishName, earned)
 	self:BroadcastState()
 	return earned
@@ -274,13 +278,5 @@ function GameCycle:Process(deltaTime: number)
 		self:BroadcastState()
 	end
 end
-
-Guest.SetFedHandler(function(player, guestEntity, dishEntity)
-	return GameCycle:OnGuestFed(player, guestEntity, dishEntity)
-end)
-
-Guest.SetExitedHandler(function(guestEntity)
-	GameCycle:OnGuestExited(guestEntity)
-end)
 
 return GameCycle

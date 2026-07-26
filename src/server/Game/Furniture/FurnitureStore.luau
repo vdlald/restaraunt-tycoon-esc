@@ -1,27 +1,16 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerScriptService = game:GetService("ServerScriptService")
 
 local FurnitureCatalog = require(ReplicatedStorage.Shared.FurnitureCatalog)
 local Net = require(ReplicatedStorage.Shared.Net)
-local Chair = require(ServerScriptService.Server.Game.Furniture.Chair)
-local DiningTable = require(ServerScriptService.Server.Game.Furniture.DiningTable)
-local KitchenTable = require(ServerScriptService.Server.Game.Furniture.KitchenTable)
-local FlourBag = require(ServerScriptService.Server.Game.Furniture.FlourBag)
-local MeatSteakFridge = require(ServerScriptService.Server.Game.Furniture.MeatSteakFridge)
-local Trashcan = require(ServerScriptService.Server.Game.Furniture.Trashcan)
-
-local factories = {
-	Chair = Chair,
-	DiningTable = DiningTable,
-	KitchenTable = KitchenTable,
-	FlourBag = FlourBag,
-	MeatSteakFridge = MeatSteakFridge,
-	Trashcan = Trashcan,
-}
 
 local FurnitureStore = {}
+FurnitureStore.__index = FurnitureStore
+
+function FurnitureStore.new(factories)
+	return setmetatable({ factories = factories }, FurnitureStore)
+end
 
 local function sendResult(player: Player, furnitureId: string, success: boolean, reason: number)
 	Net.furniturePurchaseResult.sendTo({
@@ -62,7 +51,7 @@ function FurnitureStore:RequestPurchase(player: Player, furnitureId: string, bui
 		return
 	end
 
-	local factory = factories[product.Id]
+	local factory = self.factories[product.Id]
 	local furnitureEntity, instance = factory.Create()
 	instance.Parent = workspace
 	world:set(furnitureEntity, worldWrapper:GetPendingFurniturePurchaseComponent(), {

@@ -1,25 +1,37 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
+local jecs = require(ReplicatedStorage.Packages.Jecs)
 local Consts = require(ReplicatedStorage.Shared.Consts)
+local World = require(ServerScriptService.Server.World)
+local GameCycle = require(ServerScriptService.Server.Game.GameCycle.GameCycle)
+
+type GameplayCatalog = {
+	IsPooled: (self: GameplayCatalog, entityId: jecs.Entity<nil>) -> boolean,
+}
 
 local InteractionApplication = {}
 InteractionApplication.__index = InteractionApplication
 
 export type InteractionApplication = {
-	worldWrapper: any,
-	gameCycle: any,
-	objectPool: any,
+	worldWrapper: World.WorldWrapper,
+	gameCycle: typeof(GameCycle.new()),
+	catalog: GameplayCatalog,
 	RequestInteraction: (self: InteractionApplication, player: Player, entityId: number, keyCodeValue: number) -> (),
 }
 
-function InteractionApplication.new(worldWrapper, gameCycle, objectPool): InteractionApplication
+function InteractionApplication.new(
+	worldWrapper: World.WorldWrapper,
+	gameCycle: typeof(GameCycle.new()),
+	catalog: GameplayCatalog
+): InteractionApplication
 	return setmetatable({
 		worldWrapper = worldWrapper,
 		gameCycle = gameCycle,
-		objectPool = objectPool,
-	}, InteractionApplication) :: any
+		catalog = catalog,
+	}, InteractionApplication) :: InteractionApplication
 end
 
 function InteractionApplication:RequestInteraction(player: Player, entityId: number, keyCodeValue: number)
@@ -51,7 +63,7 @@ function InteractionApplication:RequestInteraction(player: Player, entityId: num
 		warn("suspicious player interaction, not interactable view: userId=" .. player.UserId)
 		return
 	end
-	if self.objectPool:IsPooled(entityId) then
+	if self.catalog:IsPooled(entityId) then
 		warn("suspicious player interaction, interact with pooled view: userId=" .. player.UserId)
 		return
 	end

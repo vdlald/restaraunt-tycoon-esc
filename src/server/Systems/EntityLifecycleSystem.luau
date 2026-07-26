@@ -5,37 +5,39 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local jecs = require(ReplicatedStorage.Packages.Jecs)
 
-local ServerScriptService = game:GetService("ServerScriptService")
-local WorldWrapper = require(ServerScriptService.Server.World)
-
-local world = WorldWrapper:GetWorld()
-
 export type Cleanup = (entityId: jecs.Entity<nil>) -> boolean
 
 local EntityLifecycleSystem = {}
-local cleanups = {} :: { [jecs.Entity<nil>]: Cleanup }
+EntityLifecycleSystem.__index = EntityLifecycleSystem
 
-function EntityLifecycleSystem:RegisterCleanup(entityId: jecs.Entity<nil>, cleanup: Cleanup)
-	cleanups[entityId] = cleanup
+function EntityLifecycleSystem.new(worldWrapper)
+	return setmetatable({
+		worldWrapper = worldWrapper,
+		world = worldWrapper:GetWorld(),
+		cleanups = {} :: { [jecs.Entity<nil>]: Cleanup },
+	}, EntityLifecycleSystem)
 end
 
+function EntityLifecycleSystem:RegisterCleanup(entityId: jecs.Entity<nil>, cleanup: Cleanup)
+	self.cleanups[entityId] = cleanup
+end
 function EntityLifecycleSystem:UnregisterCleanup(entityId: jecs.Entity<nil>)
-	cleanups[entityId] = nil
+	self.cleanups[entityId] = nil
 end
 
 function EntityLifecycleSystem:Process(_: number)
-	for entityId in world:query(WorldWrapper:GetDestroyRequestedComponent()) do
-		if not world:contains(entityId) then
+	for entityId in self.world:query(self.worldWrapper:GetDestroyRequestedComponent()) do
+		if not self.world:contains(entityId) then
 			continue
 		end
 
-		local children = world:get(entityId, WorldWrapper:GetChildEntitiesComponent())
+		local children = self.world:get(entityId, self.worldWrapper:GetChildEntitiesComponent())
 		local hasLiveChildren = false
 		if children then
 			for _, childEntity in children.Entities do
-				if world:contains(childEntity) then
+				if self.world:contains(childEntity) then
 					hasLiveChildren = true
-					WorldWrapper:RequestDestroy(childEntity)
+					self.worldWrapper:RequestDestroy(childEntity)
 				end
 			end
 		end
@@ -43,17 +45,17 @@ function EntityLifecycleSystem:Process(_: number)
 			continue
 		end
 
-		local cleanup = cleanups[entityId]
+		local cleanup = self.cleanups[entityId]
 		if cleanup then
 			if cleanup(entityId) then
 				continue
 			end
-			cleanups[entityId] = nil
+			self.cleanups[entityId] = nil
 		end
 
-		local instance = WorldWrapper:FindInstance(entityId)
-		world:remove(entityId, WorldWrapper:GetDestroyRequestedComponent())
-		world:delete(entityId)
+		local instance = self.worldWrapper:FindInstance(entityId)
+		self.world:remove(entityId, self.worldWrapper:GetDestroyRequestedComponent())
+		self.world:delete(entityId)
 		if instance then
 			instance:Destroy()
 		end

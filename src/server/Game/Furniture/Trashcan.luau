@@ -12,41 +12,23 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Types = require(ServerScriptService.Server.Types)
 local AbstractSystem = require(ServerScriptService.Server.Systems.AbstractSystem)
 
-local WorldWrapper = require(ServerScriptService.Server.World)
-local world = WorldWrapper:GetWorld()
-
---
--- Компонент
 export type TrashcanComponent = jecs.Id<nil>
-local TrashcanComponent = world:component() :: TrashcanComponent
-
---
--- Объявление сущности
-function CreateTrashcan(): (jecs.Entity<nil>, Instance)
-	local instance: Instance = ServerStorage.Furniture.Trashcan:Clone()
-	local entity = WorldWrapper:RegisterInstance(instance, "Trashcan")
-	world:set(entity, TrashcanComponent)
-	world:set(entity, WorldWrapper:GetPlayerInteractableComponent())
-	world:set(entity, WorldWrapper:GetBuildingMovableComponent())
-
-	return entity, instance
-end
 
 --
 -- Объявление обработчика
 local System = Class.defineClass("System", AbstractSystem)
 
-function System.new()
-	local parent = AbstractSystem.new()
+function System.new(worldContext, trashcanComponent, ingredientFactory, dishFactory)
+	local parent = AbstractSystem.new(worldContext)
 	local self = setmetatable(parent, System)
+	self.trashcanComponent = trashcanComponent
+	self.ingredientFactory = ingredientFactory
+	self.dishFactory = dishFactory
 
 	return self
 end
 
 function System:Process(_: number) end
-
-local DishFactory = require(ServerScriptService.Server.Game.Dish.DishFactory)
-local IngredientFactory = require(ServerScriptService.Server.Game.Ingredient.IngredientFactory)
 
 function System:processPlayerInteract(_: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
 	if keyCode ~= Enum.KeyCode.E then
@@ -59,12 +41,12 @@ function System:processPlayerInteract(_: jecs.Entity<nil>, playerView: Types.Pla
 	end
 
 	if
-		not world:has(equippedTool, IngredientFactory:GetAbstractIngredientComponent())
-		and not world:has(equippedTool, DishFactory:GetAbstractDishComponent())
+		not self.world:has(equippedTool, self.ingredientFactory:GetAbstractIngredientComponent())
+		and not self.world:has(equippedTool, self.dishFactory:GetAbstractDishComponent())
 	then
 		return
 	end
-	WorldWrapper:RequestDestroy(equippedTool)
+	self.worldWrapper:RequestDestroy(equippedTool)
 	playerView:TakeFromHands()
 end
 
@@ -73,7 +55,7 @@ function System:HandleInteraction(
 	playerView: Types.PlayerView,
 	keyCode: Enum.KeyCode
 ): boolean
-	if not world:has(entityId, TrashcanComponent) then
+	if not self.world:has(entityId, self.trashcanComponent) then
 		return false
 	end
 	Utils:safeCall(`{self.ClassName}:processPlayerInteract`, function()
@@ -84,8 +66,27 @@ end
 
 --
 -- Модуль
-return {
-	Create = CreateTrashcan,
-	Component = TrashcanComponent,
-	System = System.new(),
-}
+local Trashcan = {}
+
+function Trashcan.new(worldContext, ingredientFactory, dishFactory)
+	local world = worldContext:GetWorld()
+	local trashcanComponent = world:component() :: TrashcanComponent
+
+	local function createTrashcan(): (jecs.Entity<nil>, Instance)
+		local instance: Instance = ServerStorage.Furniture.Trashcan:Clone()
+		local entity = worldContext:RegisterInstance(instance, "Trashcan")
+		world:set(entity, trashcanComponent)
+		world:set(entity, worldContext:GetPlayerInteractableComponent())
+		world:set(entity, worldContext:GetBuildingMovableComponent())
+
+		return entity, instance
+	end
+
+	return {
+		Create = createTrashcan,
+		Component = trashcanComponent,
+		System = System.new(worldContext, trashcanComponent, ingredientFactory, dishFactory),
+	}
+end
+
+return Trashcan
