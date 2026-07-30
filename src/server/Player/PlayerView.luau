@@ -22,7 +22,11 @@ end
 
 -- Посмотреть инструмент в руках пользователя
 function PlayerView:GetEquippedTool(): jecs.Id<nil>?
-	local tool = self:GetCharacter():FindFirstChildOfClass("Tool")
+	local character = self:GetCharacter()
+	if not character then
+		return nil
+	end
+	local tool = character:FindFirstChildOfClass("Tool")
 	if not tool then
 		return nil
 	end
@@ -33,11 +37,12 @@ end
 -- Забрать инструмент из рук пользователя
 function PlayerView:TakeFromHands(): jecs.Id<nil>?
 	local tool = self:GetEquippedTool()
-	if not tool then
+	local humanoid = self:GetHumanoid()
+	if not tool or not humanoid then
 		return nil
 	end
 
-	self:GetHumanoid():UnequipTools()
+	humanoid:UnequipTools()
 	return tool
 end
 
@@ -46,6 +51,9 @@ function PlayerView:PutInHands(tool: Tool)
 	local player: Player = self.Player
 	local character = self:GetCharacter()
 	local humanoid = self:GetHumanoid()
+	if not character or not humanoid then
+		return
+	end
 
 	if tool.Parent ~= player.Backpack and tool.Parent ~= character then
 		tool.Parent = player.Backpack
@@ -56,31 +64,39 @@ function PlayerView:PutInHands(tool: Tool)
 end
 
 -- Utils
-function PlayerView:GetDistance(instance: Instance): number
+function PlayerView:GetDistance(instance: Instance): number?
 	local humanoid = self:GetHumanoid()
+	if not humanoid or not humanoid.RootPart then
+		return nil
+	end
 	local ok, res = pcall(function()
 		return instance.PrimaryPart
 	end)
 
-	local primaryPart: Instance
-	if ok then
+	local primaryPart: BasePart?
+	if ok and res and res:IsA("BasePart") then
 		primaryPart = res
-	else
+	elseif instance:IsA("BasePart") then
 		primaryPart = instance
+	end
+	if not primaryPart then
+		return nil
 	end
 
 	local distance = (humanoid.RootPart.Position - primaryPart.Position).Magnitude
 	return distance
 end
 
-function PlayerView:GetCharacter(): Model
-	local character = self.Player.Character or self.Player.CharacterAdded:Wait()
-	return character
+function PlayerView:GetCharacter(): Model?
+	return self.Player.Character
 end
 
-function PlayerView:GetHumanoid(): Humanoid
-	local humanoid = self:GetCharacter():WaitForChild("Humanoid")
-	return humanoid
+function PlayerView:GetHumanoid(): Humanoid?
+	local character = self:GetCharacter()
+	if not character then
+		return nil
+	end
+	return character:FindFirstChildOfClass("Humanoid")
 end
 
 function PlayerView:GetPlayer(): Player

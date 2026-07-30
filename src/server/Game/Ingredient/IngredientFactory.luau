@@ -91,10 +91,8 @@ function IngredientSystem:isValidParticipant(playerView: Types.PlayerView, targe
 		return false
 	end
 
-	local ok, distance = pcall(function()
-		return playerView:GetDistance(instance)
-	end)
-	return ok and distance <= Consts.InteractablePlayerDistance + 4
+	local distance = playerView:GetDistance(instance)
+	return distance ~= nil and distance <= Consts.InteractablePlayerDistance + 4
 end
 
 function IngredientSystem:getParticipantCount(target: jecs.Entity<nil>): number

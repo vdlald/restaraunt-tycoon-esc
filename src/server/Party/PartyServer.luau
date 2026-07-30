@@ -8,13 +8,14 @@ local RateLimiter = require(ReplicatedStorage.Shared.RateLimiter)
 local PartyService = require(script.Parent.PartyService)
 
 local PartyServer = {}
+local started = false
 local partyRequestLimiter = RateLimiter.new({
-	capacity = 4,
-	refillPerSecond = 1,
+	capacity = 8,
+	refillPerSecond = 4,
 })
 local partyStartLimiter = RateLimiter.new({
 	capacity = 1,
-	refillPerSecond = 1 / 5,
+	refillPerSecond = 1 / 2,
 })
 local clientReadyLimiter = RateLimiter.new({
 	capacity = 1,
@@ -55,12 +56,17 @@ local function handle(player: Player, action: number, callback: PartyActionCallb
 		success = success,
 		reason = reason or PartyService.Error.None,
 	}, player)
-	if party then
-		PartyService:SendState(player)
-	end
+	-- Always reconcile the client snapshot, including failures such as
+	-- NotInParty after a Studio hot reload resets the local mock maps.
+	PartyService:SendState(player)
 end
 
 function PartyServer:Start()
+	if started then
+		return
+	end
+	started = true
+
 	Players.PlayerAdded:Connect(function(player)
 		PartyService:OnPlayerAdded(player)
 	end)

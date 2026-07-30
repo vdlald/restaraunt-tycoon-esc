@@ -37,12 +37,16 @@ function InteractionDispatcher.new(): InteractionDispatcher
 end
 
 function InteractionDispatcher:Register(handler: Handler)
+	assert(
+		type(handler.HandleInteraction) == "function",
+		`Interaction handler {(handler :: any).ClassName or "<unnamed>"} must define HandleInteraction`
+	)
 	table.insert(self._handlers, handler)
 end
 
 function InteractionDispatcher:Dispatch(target: jecs.Entity<nil>, playerView: Types.PlayerView, keyCode: Enum.KeyCode)
 	for _, handler in self._handlers do
-		local ok, handled = pcall(handler.HandleInteraction, handler, target, playerView, keyCode)
+		local ok, handled = xpcall(handler.HandleInteraction, debug.traceback, handler, target, playerView, keyCode)
 		if not ok then
 			warn(`Interaction handler failed: {handled}`)
 		elseif handled then

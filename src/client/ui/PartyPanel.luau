@@ -15,6 +15,7 @@ local function PartyPanel()
 	local friends, setFriends = useState(State.PartyFriends:get())
 	local invites, setInvites = useState(State.PartyInvites:get())
 	local message, setMessage = useState(State.PartyMessage:get())
+	local startPending, setStartPending = useState(State.PartyStartPending:get())
 
 	useEffect(function()
 		local disconnects = {
@@ -22,6 +23,7 @@ local function PartyPanel()
 			State.PartyFriends:on(setFriends),
 			State.PartyInvites:on(setInvites),
 			State.PartyMessage:on(setMessage),
+			State.PartyStartPending:on(setStartPending),
 		}
 		return function()
 			for _, disconnect in disconnects do
@@ -92,12 +94,17 @@ local function PartyPanel()
 		children.Start = React.createElement("TextButton", {
 			LayoutOrder = 50,
 			Size = UDim2.new(1, 0, 0, 32),
-			BackgroundColor3 = Color3.fromRGB(50, 145, 85),
-			Text = "START MATCH",
+			BackgroundColor3 = if startPending then Color3.fromRGB(80, 95, 85) else Color3.fromRGB(50, 145, 85),
+			Text = if startPending then "STARTING..." else "START MATCH",
+			Active = not startPending,
 			TextColor3 = Color3.new(1, 1, 1),
 			Font = Enum.Font.GothamBold,
 			TextSize = 15,
 			[React.Event.Activated] = function()
+				if State.PartyStartPending:get() then
+					return
+				end
+				State.PartyStartPending:set(true)
 				NetClient:StartPartyMatch()
 			end,
 		})

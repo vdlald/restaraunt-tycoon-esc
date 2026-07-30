@@ -71,6 +71,9 @@ function InteractionApplication:RequestInteraction(player: Player, entityId: num
 	end
 
 	local distance = playerView:GetDistance(instance)
+	if not distance then
+		return
+	end
 	if distance > Consts.InteractablePlayerDistance + 4 then
 		local lockOwner = self.worldWrapper:GetBuildingLockOwner(entityId)
 		local isPlacing = keyCode == Enum.KeyCode.E and lockOwner == playerId

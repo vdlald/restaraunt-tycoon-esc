@@ -348,9 +348,6 @@ function PartyService:Invite(leader: Player, targetUserId: number): (Party?, Par
 end
 
 function PartyService:AcceptInvite(player: Player, partyId: string): (Party?, PartyError?)
-	if self:GetParty(player) then
-		return nil, self.Error.AlreadyInParty
-	end
 	local invite = nil
 	pcall(function()
 		invite = invitations:GetAsync(inviteKey(player.UserId, partyId))
@@ -358,6 +355,21 @@ function PartyService:AcceptInvite(player: Player, partyId: string): (Party?, Pa
 	if not invite then
 		return nil, self.Error.InvalidInvite
 	end
+
+	local membershipClaimed = false
+	local membershipOk = pcall(function()
+		memberships:UpdateAsync(key(player.UserId), function(current)
+			membershipClaimed = current == nil
+			if current == nil then
+				return partyId
+			end
+			return current
+		end, EXPIRATION)
+	end)
+	if not membershipOk or not membershipClaimed then
+		return nil, self.Error.AlreadyInParty
+	end
+
 	local party = updateParty(partyId, function(current)
 		if not current or #current.memberUserIds >= 4 then
 			return current
@@ -371,10 +383,14 @@ function PartyService:AcceptInvite(player: Player, partyId: string): (Party?, Pa
 		return current
 	end)
 	if not party or not contains(party.memberUserIds, player.UserId) then
+		pcall(function()
+			memberships:UpdateAsync(key(player.UserId), function(current)
+				return if current == partyId then nil else current
+			end, EXPIRATION)
+		end)
 		return nil, self.Error.PartyFull
 	end
 	pcall(function()
-		memberships:SetAsync(key(player.UserId), party.id, EXPIRATION)
 		invitations:RemoveAsync(inviteKey(player.UserId, partyId))
 	end)
 	self:BroadcastParty(party)
@@ -511,6 +527,11 @@ function PartyService:StartMatch(leader: Player): (Party?, PartyError?)
 	end
 	if party.leaderUserId ~= leader.UserId then
 		return nil, self.Error.NotLeader
+	end
+	-- Start requests may be delivered more than once while the client is waiting
+	-- for a state update. Treat an already-started transition as success.
+	if party.phase == self.Phase.Teleporting or party.phase == self.Phase.Preparation then
+		return party, nil
 	end
 	if party.phase ~= self.Phase.Lobby then
 		return nil, self.Error.WrongPhase

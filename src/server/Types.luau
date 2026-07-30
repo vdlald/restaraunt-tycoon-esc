@@ -11,9 +11,9 @@ export type PlayerView = {
 	TakeFromHands: (self: PlayerView) -> jecs.Id<nil>?,
 	PutInHands: (self: PlayerView, Tool) -> (),
 
-	GetDistance: (self: PlayerView, instance: Instance) -> number,
-	GetCharacter: (self: PlayerView) -> Model,
-	GetHumanoid: (self: PlayerView) -> Humanoid,
+	GetDistance: (self: PlayerView, instance: Instance) -> number?,
+	GetCharacter: (self: PlayerView) -> Model?,
+	GetHumanoid: (self: PlayerView) -> Humanoid?,
 }
 
 return {}

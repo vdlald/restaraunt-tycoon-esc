@@ -38,4 +38,27 @@ function BuildingValidation.ValidateModelPlacement(
 	return PlacementValidation.Validate(targetCFrame, footprintSize, getBuildZoneParts(), maxHover)
 end
 
+function BuildingValidation.IsOverlappingPlacedFurniture(instance: Model): boolean
+	local boundingBoxCFrame, boundingBoxSize = instance:GetBoundingBox()
+	local overlapParams = OverlapParams.new()
+	overlapParams.FilterType = Enum.RaycastFilterType.Exclude
+	overlapParams.FilterDescendantsInstances = { instance }
+	local querySize = Vector3.new(
+		math.max(0, boundingBoxSize.X - 0.05),
+		math.max(0, boundingBoxSize.Y - 0.05),
+		math.max(0, boundingBoxSize.Z - 0.05)
+	)
+
+	for _, part in workspace:GetPartBoundsInBox(boundingBoxCFrame, querySize, overlapParams) do
+		local target: Instance? = part
+		while target and target ~= workspace do
+			if target:HasTag(Consts.Tags.BuildingMoveable) then
+				return true
+			end
+			target = target.Parent
+		end
+	end
+	return false
+end
+
 return BuildingValidation

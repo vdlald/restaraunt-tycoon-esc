@@ -80,6 +80,7 @@ local State = {
 	PartyFriends = Val.new({} :: { any }),
 	PartyInvites = Val.new({} :: { PartyInvite }),
 	PartyMessage = Val.new(""),
+	PartyStartPending = Val.new(false),
 }
 
 Net.playerDataUpdate.listen(function(data)
@@ -146,6 +147,9 @@ end)
 
 Net.partyState.listen(function(data)
 	State.Party:set(data :: PartyState)
+	if not data.canStart then
+		State.PartyStartPending:set(false)
+	end
 end)
 
 Net.partyFriendsState.listen(function(data)
@@ -164,12 +168,16 @@ Net.partyInviteReceived.listen(function(data)
 end)
 
 Net.partyActionResult.listen(function(data)
+	if data.action == 7 then
+		State.PartyStartPending:set(false)
+	end
 	if not data.success then
 		State.PartyMessage:set(`Party action failed ({data.reason})`)
 	end
 end)
 
 Net.partyTeleportStatus.listen(function(data)
+	State.PartyStartPending:set(false)
 	State.PartyMessage:set(({
 		[1] = "Reserving server...",
 		[2] = "Teleporting...",

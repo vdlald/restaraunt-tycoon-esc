@@ -61,10 +61,8 @@ function IngredientProcessingApplication:StartProcessing(player: Player, entityI
 		return
 	end
 
-	local ok, distance = pcall(function()
-		return playerView:GetDistance(instance)
-	end)
-	if not ok or distance > Consts.InteractablePlayerDistance + 4 then
+	local distance = playerView:GetDistance(instance)
+	if not distance or distance > Consts.InteractablePlayerDistance + 4 then
 		return
 	end
 

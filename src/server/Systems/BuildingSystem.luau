@@ -419,7 +419,7 @@ function BuildingSystem:attemptPlace(
 		Vector3.new(ghostCFrame.Position.X, ghostCFrame.Position.Y - moveState.FloorOffset, ghostCFrame.Position.Z)
 	local floorLevelCFrame = CFrame.new(floorLevelPosition) * ghostCFrame.Rotation
 	local validation = BuildingValidation.ValidateModelPlacement(ghost, floorLevelCFrame)
-	if not validation.IsValid then
+	if not validation.IsValid or BuildingValidation.IsOverlappingPlacedFurniture(ghost) then
 		Net.buildingPlacementResult.sendTo({ success = false }, playerView:GetPlayer())
 		return
 	end
